@@ -48,6 +48,12 @@ function MARK(api,q){ try{ api&&api.questDone&&api.questDone(q); }catch(e){} }
 function GIVE(api,id,name){ try{ api&&api.giveItem&&api.giveItem(id,T(name)); }catch(e){} }
 function HAS(api,id){ try{ return !!(api&&api.hasItem&&api.hasItem(id)); }catch(e){ return false; } }
 function esc(s){ return String(s==null?'':s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}); }
+/* nodes.sig 契约 (#barksig): 给对话节点数组挂一个反映「对话状态」的稳定签名字符串,
+   引擎的 sigOfNodes 优先用它判「是否有新对话」的 ❕ 气泡——只在真有新内容时变化,
+   不随首节点文本(如 bark 轮换)波动。sigWrap 把某 dialog 的返回数组统一挂上 sigFn(state)。 */
+function sigWrap(fn,sigFn){
+  return function(a){ _api(a); var nodes=fn(a); try{ if(nodes) nodes.sig=sigFn(a); }catch(e){} return nodes; };
+}
 
 /* ================================================================
    0. 纯逻辑区 —— 全部判定抽在这里, 挂到 spec._test 供单测
@@ -153,14 +159,35 @@ function frameJudge(artwork,frameId,frames){
 }
 
 /* ---- 谜题3 · 走调的歌 (§1.4 声音: 采样率×采样分辨率→保真度/文件大小) ----
-   通过判定 (与 WebAudio 演示完全解耦, 判分不依赖声音):
-   采样率 ≥ SOUND_MIN_RATE 且 采样分辨率(位深) ≥ SOUND_MIN_DEPTH   */
-var SOUND_MIN_RATE=8000, SOUND_MIN_DEPTH=8, SOUND_DUR_SEC=3;
-var SOUND_RATES=[1000,2000,4000,8000,11025,22050,44100];
-var SOUND_DEPTHS=[1,2,4,8,16];
-function soundPasses(rateHz,depthBits){ return rateHz>=SOUND_MIN_RATE && depthBits>=SOUND_MIN_DEPTH; }
-function soundBytes(rateHz,depthBits,durationSec){ return Math.ceil(rateHz*depthBits*(durationSec==null?SOUND_DUR_SEC:durationSec)/8); }
-function isOptimalSoundChoice(rateHz,depthBits){ return soundPasses(rateHz,depthBits) && rateHz===SOUND_MIN_RATE && depthBits===SOUND_MIN_DEPTH; }
+   J批·可视化优先重做 (镜像 domain_data.js 的 dt_wave / sampleReconstruct):
+   把它变成一道「规格题」——给定字节预算, 唯一正解 = 满足奈奎斯特(2×最高音)
+   且位深达标、且塞得进预算的「最低采样率」。判分与音频完全解耦(音频只作佐证)。
+   预算刻意设为 32KB, 使唯一通过组合 = (8000Hz, 8-bit): 更高采样率/更高位深都超预算,
+   更低采样率丢高音(走样), 更低位深出毛刺——三类错误各有定向诊断, 猜不出来。      */
+var SONG_TOP_HZ=4000;                 // 曲子最高音 ≈ 4kHz (画在波形上)
+var SONG_MIN_RATE=2*SONG_TOP_HZ;      // 8000: 留住 4kHz 所需的最低采样率(奈奎斯特)
+var SONG_MIN_DEPTH=8;                 // 位深达标下限(低于此→量化台阶毛刺)
+var SONG_DUR_SEC=3;                   // 片段时长(秒)
+var SONG_BUDGET_BYTES=32768;          // 32KB 存储预算(令唯一解 = 最低达标组合)
+var SONG_RATES=[4000,8000,11025,16000,22050,44100];
+var SONG_DEPTHS=[4,8,16];
+function songBytes(rateHz,depthBits,durSec){ return Math.ceil(rateHz*depthBits*(durSec==null?SONG_DUR_SEC:durSec)/8); }
+function songRateKeepsTop(rateHz){ return rateHz>=SONG_MIN_RATE; }              // 采样率能否留住最高音
+function songDepthAdequate(depthBits){ return depthBits>=SONG_MIN_DEPTH; }      // 位深是否达标(不出毛刺)
+function songFitsBudget(rateHz,depthBits,durSec,budget){ return songBytes(rateHz,depthBits,durSec)<=(budget==null?SONG_BUDGET_BYTES:budget); }
+/* 走样(混叠)频率: 最高音在采样率 rate 下重建成的表观频率, == SONG_TOP_HZ 当且仅当被正确捕捉 */
+function songAliasHz(rateHz){ if(rateHz<=0)return SONG_TOP_HZ; var m=SONG_TOP_HZ%rateHz; return (m>rateHz/2)?(rateHz-m):m; }
+/* 唯一正解判定: 留住高音 且 位深达标 且 塞进预算(在给定选项集下, 仅 (8000,8) 同时满足) */
+function songPasses(rateHz,depthBits){ return songRateKeepsTop(rateHz)&&songDepthAdequate(depthBits)&&songFitsBudget(rateHz,depthBits); }
+/* 定向诊断: 返回 'lowrate'(高音丢了) | 'grit'(全是毛刺) | 'overbudget'(超预算) | 'ok' */
+function songDiagnose(rateHz,depthBits){
+  if(!songRateKeepsTop(rateHz)) return 'lowrate';
+  if(!songDepthAdequate(depthBits)) return 'grit';
+  if(!songFitsBudget(rateHz,depthBits)) return 'overbudget';
+  return 'ok';
+}
+/* 是否恰好最省(最低达标采样率 + 最低达标位深) */
+function songOptimal(rateHz,depthBits){ return songPasses(rateHz,depthBits)&&rateHz===SONG_MIN_RATE&&depthBits===SONG_MIN_DEPTH; }
 
 /* ---- 谜题4 (Boss) · 保管库: 有损 vs 无损 归档 (压缩总论) ----
    每件藏品判断该归 Verbatim(无损)的保险柜, 还是 Gist(有损)的褡裢 */
@@ -401,7 +428,7 @@ function verbatimDialog(a){ _api(a);
                  '每一个字, 按原来的顺序, 一字不差。我从没丢过一个音节, 也不打算破例。')},
     ];
   }
-  if(!FLAG(API,'med_twins_met')){
+  if(!FLAG(API,'med_verbatim_heard')){
     return [
       {sp:SP,t:B('...and on the fourth Tuesday, at 3:14 in the afternoon, the founder said — no, wait, I should give you the full context first, and the weather that day, and —',
                  '……然后在第四个星期二, 下午三点十四分, 创始人说——不, 等等, 我得先给你完整的背景, 还有那天的天气, 还有——')},
@@ -410,7 +437,7 @@ function verbatimDialog(a){ _api(a);
       {sp:SP,t:B('My sister keeps the other half of the vault — the things that only need to arrive close enough. She calls it efficient. I call it having opinions about which parts of the truth matter. We have not agreed on anything since the Tuesday I mentioned. Which Tuesday, you ask? I would be delighted to tell you. All of it.',
                  '我妹妹管着库房的另一半——那些"差不多到就行"的东西。她管这个叫高效。我管这个叫"擅自决定真相里哪部分重要"。自我提到的那个星期二起, 我们俩就没在任何事上达成过一致。你问是哪个星期二? 我很乐意告诉你。全部讲清楚。'),choices:[
         {t:B('(politely excuse yourself before the full weather report)','(在完整天气预报开始前礼貌告退)'),next:-1,do:function(){
-          SET(API,'med_twins_met'); STEP(API,'med_side_twins','t1');
+          SET(API,'med_verbatim_heard'); SET(API,'med_twins_met'); STEP(API,'med_side_twins','t1');
           TOAST(API,B('Side quest: Reconciling the Twins — go hear Gist\'s side too.','支线: 调解双生姐妹——也去听听 Gist 怎么说。'));
         }},
       ]},
@@ -433,7 +460,7 @@ function gistDialog(a){ _api(a);
                  '早说了短版本大多数时候都够用。这次就是"大多数时候"里的一次。')},
     ];
   }
-  if(!FLAG(API,'med_twins_met')){
+  if(!FLAG(API,'med_gist_heard')){
     return [
       {sp:SP,t:B('Hey! New face. Long story short — this place stores stuff, some of it exactly, some of it "basically." I do the "basically." Way faster. Way lighter. Nobody\'s ever complained about my version of a sunset.',
                  '嘿! 新面孔。长话短说——这地方存东西, 有的存得一字不差, 有的存个"大概"。我干"大概"那部分。快得多, 也轻得多。从没人抱怨过我存的日落不够好看。'),choices:[
@@ -446,7 +473,7 @@ function gistDialog(a){ _api(a);
                  '扔掉的是人根本不会发现少了的细节——视网膜分辨不出的微小色差, 被更响的声音盖住的安静频率。一旦扔了, 就是真扔了, 不是"扔了但等人来查"那种。这就是那笔交易, 大多数文件都很乐意接受。'),next:3},
       {sp:SP,t:B('Go hear my sister out properly too, before you decide who\'s right. Spoiler: we both are. Just not about the same file.',
                  '在你下判断之前, 也去好好听听我姐怎么说。剧透一下: 我俩都对。只是对的不是同一个文件。'),next:-1,do:function(){
-        SET(API,'med_twins_met'); STEP(API,'med_side_twins','t2');
+        SET(API,'med_gist_heard'); SET(API,'med_twins_met'); STEP(API,'med_side_twins','t2');
       }},
     ];
   }
@@ -460,6 +487,21 @@ function gistDialog(a){ _api(a);
   ];
 }
 
+/* --- nodes.sig 状态键: 与各 dialog 的分支条件一一对应, 仅随「对话状态」变化 ---
+   本模块所有 NPC 均为确定性状态机(无 Math.random / bark 轮换), 首节点文本本就随状态
+   切换而变; 这里显式挂稳定 sig, 以满足引擎 #barksig 契约并防止未来加入 bark 时误亮 ❕。 */
+function sigDocent(){
+  if(FLAG(API,'med_p4'))return 'all_done';
+  if(FLAG(API,'med_p2')&&!FLAG(API,'med_photo_asked'))return 'photo_offer';
+  if(FLAG(API,'med_photo_asked')&&!FLAG(API,'med_side_photo'))return 'photo_pending';
+  if(FLAG(API,'med_side_photo'))return 'photo_done';
+  return 'intro';
+}
+function sigRaster(){ if(FLAG(API,'med_p2'))return 'done'; if(FLAG(API,'med_p1'))return 'frame_next'; return 'intro'; }
+function sigNyquist(){ return FLAG(API,'med_p3')?'done':'intro'; }
+function sigVerbatim(){ if(FLAG(API,'med_twins_done'))return 'twins_done'; if(!FLAG(API,'med_verbatim_heard'))return 'intro'; return 'ask'; }
+function sigGist(){ if(FLAG(API,'med_twins_done'))return 'twins_done'; if(!FLAG(API,'med_gist_heard'))return 'intro'; return 'ask'; }
+
 /* ================================================================
    4. 谜题渲染
    ================================================================ */
@@ -470,8 +512,8 @@ var MP1_HINTS=[
     '提示 1/3: RLE 把一段连续值存成 [有多少个, 是什么值], 而不是一个个存。第0行的码是「暗3、亮4、暗3」——点出10格与之匹配, 从暗色开始。'),
   B('Hint 2/3: count the runs as you go and make sure they add up to exactly 10 per row (10 pixels wide) — a common mistake is running one cell short or long.',
     '提示 2/3: 一边点一边数, 确保每行游程加起来正好等于 10 (壁画宽10像素)——常见错误是多点或少点一格。'),
-  B('Hint 3/3: full answer key, row by row — r0:3,4,3 · r1:2,6,2 · r2:1,8,1 · r3: all 10 lit · r4: all 10 lit · r5:1,8,1 · r6:2,6,2 · r7:3,4,3 (counts of dark,light,dark unless stated).',
-    '提示 3/3: 逐行完整答案——r0:3,4,3 · r1:2,6,2 · r2:1,8,1 · r3: 全亮10格 · r4: 全亮10格 · r5:1,8,1 · r6:2,6,2 · r7:3,4,3 (顺序为暗,亮,暗, 特别说明的除外)。')
+  B('Hint 3/3 — worked example with DIFFERENT numbers: say a 6-wide row\'s code read "2 dark, 2 light, 2 dark". You would click cells 1-2 dark, cells 3-4 light, cells 5-6 dark, then check they sum to 6. Use exactly that method here: read each row\'s runs left to right, click that many cells of that colour in order, and make every row add up to 10. Recount any row whose runs don\'t total 10.',
+    '提示 3/3 —— 换了数字的完整范例(例子·换了数字): 假设某个 6 格宽的行, 码是「暗2、亮2、暗2」。你就点: 第1-2格暗、第3-4格亮、第5-6格暗, 再检查加起来是 6。本题照搬这个方法: 从左到右读每行的游程, 有几个就按顺序点几个对应颜色的格子, 让每一行都加到 10。哪一行的游程加不到 10 就重数那一行。')
 ];
 var MP1_CODE_TEXT=canonicalRunsForMural().map(function(runs,i){
   return 'row '+i+':  '+runs.map(function(r){return r[0]+'×'+(r[1]?'█(light)':'░(dark)');}).join('  ');
@@ -596,14 +638,31 @@ var MP2_HINTS=[
     '提示 1/3: 文件大小(bit) = 宽 × 高 × 色深。再除以 8 并向上取整换算成字节——字节数不能是分数。'),
   B('Hint 2/3: once you have the byte count, pick the SMALLEST frame whose capacity is still ≥ that many bytes. A frame that\'s too small won\'t fit; a frame that\'s far too big just wastes space.',
     '提示 2/3: 算出字节数后, 选容量刚好 ≥ 该字节数的<b>最小</b>那个框。太小装不下, 太大就是浪费空间。'),
-  B('Hint 3/3: worked example for the Sepia Photograph (64×48, 8-bit): 64×48×8 = 24576 bits = 3072 bytes → smallest frame ≥ 3072B is the Memory Crystal (4096B).',
-    '提示 3/3: 以棕褐色老照片为例 (64×48, 8-bit): 64×48×8 = 24576 bit = 3072 字节 → 大于等于 3072 字节的最小框是记忆晶体 (4096B)。')
+  B('Hint 3/3 — worked example with DIFFERENT numbers: suppose a 20×20 icon at 2-bit depth (not one of these five pieces). Bits = 20×20×2 = 800 bits = 100 bytes. Then pick the smallest frame whose capacity is still ≥ 100B: if the shelf offered 60B / 150B / 500B you\'d take 150B — 60B is too small to fit, 500B wastes most of its space. Run those exact three steps (multiply → ÷8 round up → smallest frame that still fits) on each real piece.',
+    '提示 3/3 —— 换了数字的完整范例(例子·换了数字): 假设一个 20×20、2-bit 色深的图标(不是这五件里的任何一件)。位数 = 20×20×2 = 800 bit = 100 字节。再选容量仍 ≥ 100B 的最小框: 若架上是 60B / 150B / 500B, 就选 150B——60B 太小装不下, 500B 又白白空掉一大半。把这三步(相乘 → ÷8 向上取整 → 选仍装得下的最小框)照搬到每一件真实展品上。')
 ];
 function renderFrame(el,api){ _api(api);
   el.innerHTML='';
   var wrap=mk(el,'div','padding:14px 18px;min-width:560px;max-width:760px;'+TXT);
-  header(wrap,tx('Frame Fitting Bench','相框适配台'),'§1.3 resolution × colour depth → file size');
   var solved=!!FLAG(api,'med_p2');
+  header(wrap,tx('Frame Fitting Bench','相框适配台')+(solved?' <span style="'+K+'">✓ '+tx('CLEARED','已完成')+'</span>':''),
+    '§1.3 resolution × colour depth → file size');
+  if(solved){
+    /* 完成态: ✓ 横幅 + 每件锁定到正解相框(不可再改, 直接呈现) */
+    mk(wrap,'div','margin:4px 0 10px;border:1px solid #6a5a2a;background:rgba(40,30,10,.35);padding:8px 10px;'+K,
+      tx('<b>✓ CLEARED.</b> Every piece is framed exactly right — nothing pinched, nothing wasted.',
+         '<b>✓ 已完成。</b> 每件展品都配到了刚好合适的框——不挤也不浪费。'));
+    var dlist=mk(wrap,'div','margin:10px 0;');
+    ARTWORKS.forEach(function(art){
+      var bytes=bytesFor(art.w,art.h,art.depth);
+      var best=bestFrame(bytes,FRAMES)||{};
+      var row=mk(dlist,'div','border:1px solid #4a3a1a;padding:8px 10px;margin:6px 0;opacity:.92;');
+      row.innerHTML='<b>'+T(art.label)+'</b> <span style="'+DIM+'">'+art.w+'×'+art.h+'px, '+art.depth+'-bit = '+bytes+'B</span>'+
+        ' — <span style="'+K+'">✓ '+tx('framed: ','已配框: ')+T(best.label||B('?','?'))+
+        ' <span style="'+DIM+'">('+(best.capacityBytes||0)+'B)</span></span>';
+    });
+    return;
+  }
   var choices={};
   var savedKey='med_p2_choices';
   var saved=FLAG(api,savedKey);
@@ -640,83 +699,138 @@ function renderFrame(el,api){ _api(api);
 
 /* --- 谜题3: 走调的歌 (采样率 × 采样分辨率 + WebAudio 演示) --- */
 var MP3_HINTS=[
-  B('Hint 1/3: this tune\'s highest note needs a sample rate of at least 8000Hz to come through clean — anything lower and the reconstruction wobbles between pitches.',
-    '提示 1/3: 这首曲子的最高音, 至少需要 8000Hz 的采样率才能干净重现——再低, 重建出的声音会在音高之间打颤。'),
-  B('Hint 2/3: sample rate alone isn\'t enough — you also need at least 8 bits of sample resolution, or the loudness itself gets chopped into audible, gritty steps.',
-    '提示 2/3: 光有采样率还不够——采样分辨率也至少要 8 bit, 否则响度本身会被切成听得出来的、粗糙的台阶感。'),
-  B('Hint 3/3: the fix is rate=8000Hz, depth=8-bit — the minimum combination that still passes. Anything higher still passes, but wastes bytes for no audible gain.',
-    '提示 3/3: 正解是 采样率=8000Hz、采样分辨率=8-bit——刚好达标的最低组合。更高的组合也能过关, 但只是白白多耗字节, 听感没有提升。')
+  B('Hint 1/3: watch the yellow wave, not your ears. As you lower the sample rate the dots spread apart; below a point the yellow line can no longer follow the fast green wiggle and folds into a slower, wrong note — that folding is aliasing, and it is why a too-low rate loses the high note.',
+    '提示 1/3: 盯着黄线看, 别只用耳朵。采样率越低, 黄点越稀; 低到一定程度, 黄线就跟不上绿波的快速抖动, 塌成一条更慢的、错误的音——这个"折叠"就是走样, 也是采样率太低会丢高音的原因。'),
+  B('Hint 2/3: two separate limits, then a budget check. To keep a note you must sample at least TWICE its frequency (fixes "when"); the bit depth must be high enough that loudness isn\'t chopped into a coarse, gritty staircase (fixes "how finely"). Then confirm the byte size fits: rate × depth × seconds ÷ 8.',
+    '提示 2/3: 两个各自独立的限制, 再加一道预算核对。要留住一个音, 采样率至少要是它频率的<b>两倍</b>(管"什么时候"); 位深要够高, 响度才不会被切成粗糙的台阶(管"多精细")。然后核对字节数塞不塞得下: 采样率 × 位深 × 秒数 ÷ 8。'),
+  B('Hint 3/3 — worked example with DIFFERENT numbers: suppose a clip\'s top note were 5kHz, the budget 20KB, duration 2s. Minimum rate = 2×5 = 10kHz. At 10kHz, 8-bit, 2s: 10000×8×2÷8 = 20000 bytes ≈ 19.5KB — just fits. 5-bit would sound gritty; 16-bit = 40000 bytes busts the budget. So THERE the answer is 10kHz/8-bit. Now run those same three checks — keep the top note, avoid grit, fit the budget — on THIS clip\'s own numbers.',
+    '提示 3/3 —— 换了数字的完整范例(例子·换了数字): 假设某片段最高音是 5kHz、预算 20KB、时长 2 秒。最低采样率 = 2×5 = 10kHz。在 10kHz、8-bit、2 秒下: 10000×8×2÷8 = 20000 字节 ≈ 19.5KB——刚好装下。5-bit 会有毛刺; 16-bit = 40000 字节则超预算。所以那道题的答案是 10kHz/8-bit。现在用同样三步——留住高音、避免毛刺、塞进预算——套到本题自己的数字上。')
 ];
+/* 可视化核心: 画原始 4kHz 连续波(绿) + 按采样率打样点(黄点) + 只靠样点重建的折线(黄),
+   样点值先按位深量化 → 采样率不足肉眼看见黄线塌成假低频(走样); 位深不足看见台阶毛刺。
+   rate=0 只画原波。与判分完全解耦, 纯视觉。 */
+function songDrawWave(cv,rateHz,depthBits){
+  try{
+    var ctx=cv.getContext('2d'),W=cv.width,H=cv.height;
+    ctx.fillStyle='#0d0a05';ctx.fillRect(0,0,W,H);
+    ctx.strokeStyle='#3a2f18';ctx.beginPath();ctx.moveTo(0,H/2);ctx.lineTo(W,H/2);ctx.stroke();
+    var cycles=4, winSec=cycles/SONG_TOP_HZ, A=H*0.36;
+    // 原始连续声波(绿) —— 4kHz 高音
+    ctx.strokeStyle='#3a8f5a';ctx.lineWidth=1.6;ctx.beginPath();
+    for(var x=0;x<=W;x++){var t=(x/W)*winSec,y=H/2-Math.sin(2*Math.PI*SONG_TOP_HZ*t)*A;x?ctx.lineTo(x,y):ctx.moveTo(x,y);}
+    ctx.stroke();
+    if(!rateHz)return;
+    var levels=Math.pow(2,Math.max(1,depthBits));
+    function quant(v){ return Math.round(((v+1)/2)*(levels-1))/(levels-1)*2-1; }  // [-1,1]→按位深量化
+    var pts=[],k=0,tk;
+    for(k=0;(tk=k/rateHz)<=winSec+1e-12;k++){
+      var qv=quant(Math.sin(2*Math.PI*SONG_TOP_HZ*tk));
+      pts.push([(tk/winSec)*W, H/2-qv*A]);
+    }
+    if(pts.length<2)pts.push([W, H/2-quant(Math.sin(2*Math.PI*SONG_TOP_HZ*winSec))*A]);
+    ctx.strokeStyle='#ffce3a';ctx.lineWidth=1.6;ctx.beginPath();
+    pts.forEach(function(p,i){i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]);});
+    ctx.stroke();
+    ctx.fillStyle='#ffe08a';
+    pts.forEach(function(p){ctx.beginPath();ctx.arc(p[0],p[1],3,0,7);ctx.fill();});
+  }catch(e){}
+}
 function renderSong(el,api){ _api(api);
   el.innerHTML='';
   var wrap=mk(el,'div','padding:14px 18px;min-width:560px;max-width:760px;'+TXT);
-  header(wrap,tx('The Restoration Bench · The Off-Key Song','修复台 · 走调的歌'),'§1.4 sample rate × resolution');
   var solved=!!FLAG(api,'med_p3');
-  mk(wrap,'div','',tx(
-    'This tune\'s highest note reaches roughly 4kHz. Pick a <b>sample rate</b> and a <b>sample resolution (bit depth)</b> to rebuild it — press Play to hear your reconstruction against the original, then Confirm once it holds steady.',
-    '这首曲子的最高音大约在 4kHz。选一个<b>采样率</b>和一个<b>采样分辨率(位深)</b>来重建它——按"播放"对比你的重建版本和原声, 稳住之后按"确认"。'));
-  var rateSel=mk(wrap,'div','margin:10px 0;');
-  rateSel.appendChild(mk(null,'div',DIM,tx('Sample rate:','采样率:')));
-  var curRate=SOUND_RATES[0], curDepth=SOUND_DEPTHS[0];
-  var rateBtns=mk(rateSel,'div','display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;');
-  var depthBox=mk(wrap,'div','margin:10px 0;');
-  depthBox.appendChild(mk(null,'div',DIM,tx('Sample resolution:','采样分辨率:')));
-  var depthBtns=mk(depthBox,'div','display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;');
-  var info=mk(wrap,'div','margin:8px 0;font-size:12px;color:#e8c98a;');
-  function paintInfo(){
-    var bytes=soundBytes(curRate,curDepth,SOUND_DUR_SEC);
-    info.innerHTML=tx('Rate '+curRate+'Hz × depth '+curDepth+'-bit × '+SOUND_DUR_SEC+'s → <b>'+bytes+' bytes</b>',
-                       '采样率 '+curRate+'Hz × 位深 '+curDepth+'-bit × '+SOUND_DUR_SEC+'s → <b>'+bytes+' 字节</b>');
+  var kBudget=Math.round(SONG_BUDGET_BYTES/1024);
+  header(wrap,tx('The Restoration Bench · The Off-Key Song','修复台 · 走调的歌')+(solved?' <span style="'+K+'">✓ '+tx('CLEARED','已完成')+'</span>':''),
+    '§1.4 sample rate × resolution');
+  if(solved){
+    /* 完成态: ✓ 横幅 + 锁定的最优规格 + 定格波形 */
+    mk(wrap,'div','margin:4px 0 10px;border:1px solid #6a5a2a;background:rgba(40,30,10,.35);padding:8px 10px;'+K,
+      tx('<b>✓ CLEARED.</b> Rebuilt at '+SONG_MIN_RATE+'Hz / '+SONG_MIN_DEPTH+'-bit — the top note holds, no grit, and it slips under the '+kBudget+'KB budget with room to spare ('+songBytes(SONG_MIN_RATE,SONG_MIN_DEPTH,SONG_DUR_SEC)+'B).',
+         '<b>✓ 已完成。</b> 以 '+SONG_MIN_RATE+'Hz / '+SONG_MIN_DEPTH+'-bit 重建——高音稳住、没有毛刺, 还宽裕地压进了 '+kBudget+'KB 预算('+songBytes(SONG_MIN_RATE,SONG_MIN_DEPTH,SONG_DUR_SEC)+'B)。'));
+    var cvd=mk(wrap,'canvas','display:block;margin:8px 0;border:1px solid #6a5a2a;background:#0d0a05;');
+    cvd.width=460;cvd.height=130;songDrawWave(cvd,SONG_MIN_RATE,SONG_MIN_DEPTH);
+    mk(wrap,'div','font-size:11.5px;'+DIM,tx('The dots land two-per-cycle on the green wave and the yellow line tracks it cleanly — that is exactly enough, and not one byte more.',
+                                             '黄点在绿波上每周期落两个, 黄线干净地贴合原波——这就是"刚好够", 一个字节都不多。'));
+    return;
   }
-  function paintBtns(container,arr,cur,setter,unit){
-    container.innerHTML='';
-    arr.forEach(function(v){
-      var on=(v===cur());
-      var b=mk(container,'button',on?BTN_HOT:BTN,v+unit);
-      b.onclick=function(){ setter(v); S(api,'ui'); paintBtns(container,arr,cur,setter,unit); paintInfo(); };
+  mk(wrap,'div','',tx(
+    'The tune\'s highest note sits at about <b>'+(SONG_TOP_HZ/1000)+'kHz</b>. This '+SONG_DUR_SEC+'-second clip has to fit an archive slot of only <b>'+kBudget+'KB</b>. Pick the <b>lowest sample rate</b> (and just-enough bit depth) that keeps the top note, avoids grit, and still fits the budget. <b>Watch the picture, not your ears.</b>',
+    '这首曲子的最高音大约在 <b>'+(SONG_TOP_HZ/1000)+'kHz</b>。这段 '+SONG_DUR_SEC+' 秒的片段, 档案格只留了 <b>'+kBudget+'KB</b>。选出既能留住高音、又不出毛刺、还塞得进预算的<b>最低采样率</b>(和刚好够的位深)。<b>看图, 别只用耳朵。</b>'));
+  mk(wrap,'div','font-size:11.5px;'+DIM+'margin:4px 0;',tx(
+    'Green = the real '+(SONG_TOP_HZ/1000)+'kHz wave. Yellow dots = snapshots at your rate. Yellow line = all the machine can rebuild. Too few dots → the top note folds into a fake slow note (aliasing). Too few bit levels → the dots snap onto a coarse staircase (grit).',
+    '绿线 = 真实的 '+(SONG_TOP_HZ/1000)+'kHz 波。黄点 = 按你的采样率拍下的快照。黄线 = 机器只能重建出的样子。点太少 → 高音塌成假的慢音(走样)。位深档太少 → 黄点被卡到粗糙的台阶上(毛刺)。'));
+  var cv=mk(wrap,'canvas','display:block;margin:8px 0;border:1px solid #6a5a2a;background:#0d0a05;');
+  cv.width=460;cv.height=130;
+  var curRate=0, curDepth=SONG_MIN_DEPTH;
+  var read=mk(wrap,'div','font-size:12px;color:#e8c98a;margin:2px 0 6px;min-height:34px;line-height:1.6;');
+  function refresh(){
+    songDrawWave(cv,curRate,curDepth);
+    if(!curRate){ read.innerHTML=tx('Pick a sample rate below — the snapshots (dots) and rebuilt wave (yellow) update live.','在下面选一个采样率——快照(点)和重建波形(黄线)会实时更新。'); return; }
+    var bytes=songBytes(curRate,curDepth,SONG_DUR_SEC);
+    var keepTop=songRateKeepsTop(curRate), depthOk=songDepthAdequate(curDepth), fits=songFitsBudget(curRate,curDepth);
+    read.innerHTML=tx(
+      'Rate <b>'+curRate+'Hz</b> keeps up to <b>'+Math.floor(curRate/2)+'Hz</b>; depth <b>'+curDepth+'-bit</b> = '+Math.pow(2,curDepth)+' levels; size <b>'+bytes+'B</b> vs '+SONG_BUDGET_BYTES+'B budget. '+
+        (keepTop?'':'<span style="color:#ff8a5a">Top note lost.</span> ')+(depthOk?'':'<span style="color:#ff8a5a">Gritty.</span> ')+(fits?'':'<span style="color:#ff8a5a">Over budget.</span> '),
+      '采样率 <b>'+curRate+'Hz</b> 最高留住 <b>'+Math.floor(curRate/2)+'Hz</b>; 位深 <b>'+curDepth+'-bit</b> = '+Math.pow(2,curDepth)+' 档; 体积 <b>'+bytes+'B</b> vs 预算 '+SONG_BUDGET_BYTES+'B。 '+
+        (keepTop?'':'<span style="color:#ff8a5a">高音丢了。</span> ')+(depthOk?'':'<span style="color:#ff8a5a">全是毛刺。</span> ')+(fits?'':'<span style="color:#ff8a5a">超预算。</span> '));
+  }
+  var rateWrap=mk(wrap,'div','margin:6px 0;');rateWrap.appendChild(mk(null,'div',DIM,tx('Sample rate:','采样率:')));
+  var rateBtns=mk(rateWrap,'div','display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;');
+  var depthWrap=mk(wrap,'div','margin:6px 0;');depthWrap.appendChild(mk(null,'div',DIM,tx('Sample resolution (bit depth):','采样分辨率(位深):')));
+  var depthBtns=mk(depthWrap,'div','display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;');
+  function repaintBtns(){
+    [[rateBtns,SONG_RATES,function(){return curRate;},function(v){curRate=v;},'Hz'],
+     [depthBtns,SONG_DEPTHS,function(){return curDepth;},function(v){curDepth=v;},'-bit']].forEach(function(cfg){
+      var container=cfg[0];container.innerHTML='';
+      cfg[1].forEach(function(v){
+        var on=(v===cfg[2]());
+        var b=mk(container,'button',on?BTN_HOT:BTN,v+cfg[4]);
+        b.onclick=function(){ cfg[3](v); S(api,'ui'); repaintBtns(); refresh(); };
+      });
     });
   }
-  paintBtns(rateBtns,SOUND_RATES,function(){return curRate;},function(v){curRate=v;},'Hz');
-  paintBtns(depthBtns,SOUND_DEPTHS,function(){return curDepth;},function(v){curDepth=v;},'-bit');
-  paintInfo();
-  var audioCtl=mk(wrap,'div','margin:10px 0;display:flex;gap:10px;');
+  repaintBtns(); refresh();
   var ctx=null;
-  function ensureCtx(){
-    try{ if(!ctx){ var AC=window.AudioContext||window.webkitAudioContext; if(AC) ctx=new AC(); } if(ctx&&ctx.state==='suspended') ctx.resume(); }catch(e){}
-    return ctx;
-  }
-  var NOTES=[440,554,659];
-  mk(audioCtl,'button',BTN,tx('♪ Play original','♪ 播放原声')).onclick=function(){
-    var c=ensureCtx(); if(!c) return;
-    NOTES.forEach(function(f,i){ setTimeout(function(){ playTone(c,f,0.32); }, i*340); });
+  function ensureCtx(){ try{ if(!ctx){ var AC=window.AudioContext||window.webkitAudioContext; if(AC) ctx=new AC(); } if(ctx&&ctx.state==='suspended') ctx.resume(); }catch(e){} return ctx; }
+  var NOTES=[440,554,659,880];
+  var ab=mk(wrap,'div','margin:8px 0;display:flex;gap:10px;flex-wrap:wrap;align-items:center;');
+  mk(ab,'button',BTN,tx('♪ Play original','♪ 播放原声')).onclick=function(){
+    var c=ensureCtx(); if(!c) return; NOTES.forEach(function(f,i){ setTimeout(function(){ playTone(c,f,0.3); }, i*300); });
   };
-  mk(audioCtl,'button',BTN,tx('♪ Play your reconstruction','♪ 播放你的重建')).onclick=function(){
-    var c=ensureCtx(); if(!c) return;
-    NOTES.forEach(function(f,i){ setTimeout(function(){ playDegraded(c,f,0.32,curRate,curDepth); }, i*340); });
+  mk(ab,'button',BTN,tx('♪ Play your rebuild','♪ 播放你的重建')).onclick=function(){
+    var c=ensureCtx(); if(!c) return; var r=curRate||SONG_MIN_RATE;
+    NOTES.forEach(function(f,i){ setTimeout(function(){ playDegraded(c,f,0.3,r,curDepth); }, i*300); });
   };
-  var ctl2=mk(wrap,'div','margin-top:6px;display:flex;gap:10px;');
-  mk(ctl2,'button',BTN_HOT,tx('Confirm settings ▸','确认设置 ▸')).onclick=function(){
-    if(soundPasses(curRate,curDepth)){
+  mk(ab,'span','font-size:11px;'+DIM,tx('(audio is corroboration only — real downsampling, never pitch-shift. Trust the picture.)','(音频只是佐证——真实降采样, 绝不变调。以图为准。)'));
+  var msg=mk(wrap,'div','min-height:34px;font-size:12px;color:#ffce3a;line-height:1.6;margin-top:4px;');
+  var foot=mk(wrap,'div','margin-top:4px;display:flex;gap:10px;');
+  mk(foot,'button',BTN_HOT,tx('⟳ Confirm rebuild ▸','⟳ 确认重建 ▸')).onclick=function(){
+    if(!curRate){ S(api,'err'); msg.textContent=tx('Pick a sample rate first — and watch what it does to the yellow wave.','先选一个采样率——并看看它把黄线变成了什么样。'); return; }
+    var diag=songDiagnose(curRate,curDepth);
+    if(diag==='ok'){
       S(api,'ok'); SET(api,'med_p3'); STEP(api,'med_main','s3');
-      TOAST(api,B('✓ The high note holds. Rate '+curRate+'Hz, depth '+curDepth+'-bit — faithful enough for any ear.',
-                  '✓ 高音稳住了。采样率 '+curRate+'Hz, 分辨率 '+curDepth+'-bit——对任何耳朵都够真实了。'),true);
-      if(isOptimalSoundChoice(curRate,curDepth)&&!FLAG(api,'med_challenge_3')){
-        SET(api,'med_challenge_3'); S(api,'quest');
-        TOAST(api,B('★ And you found the smallest file that still passes — 8000Hz, 8-bit, not a byte more than needed.','★ 而且你找到了刚好达标、最小的文件——8000Hz、8-bit, 一个字节都不多花。'),true);
-      }
+      if(songOptimal(curRate,curDepth)) SET(api,'med_challenge_3');
+      TOAST(api,B('✓ The high note holds, no grit, and it fits — '+curRate+'Hz / '+curDepth+'-bit, '+songBytes(curRate,curDepth,SONG_DUR_SEC)+'B under the '+kBudget+'KB budget.',
+                  '✓ 高音稳住、没有毛刺、也塞得进——'+curRate+'Hz / '+curDepth+'-bit, '+songBytes(curRate,curDepth,SONG_DUR_SEC)+'B, 在 '+kBudget+'KB 预算内。'),true);
       renderSong(el,api);
     }else{
       S(api,'err'); bumpFail(api,'med_p3_fails','med_p_song');
-      msgFlash(wrap,tx('Still wobbling — press Play on your reconstruction and listen for where it breaks.','还在打颤——按"播放你的重建"听听问题出在哪。'));
+      var m = (diag==='lowrate')
+        ? tx('✗ High note lost — the rate is below 2×'+(SONG_TOP_HZ/1000)+'kHz, so the '+(SONG_TOP_HZ/1000)+'kHz note folds into a fake slow wobble (watch the yellow wave). Raise the rate.',
+             '✗ 高音丢了——采样率低于 2×'+(SONG_TOP_HZ/1000)+'kHz, '+(SONG_TOP_HZ/1000)+'kHz 那个音塌成了假的慢波(看黄线)。把采样率提上去。')
+        : (diag==='grit')
+        ? tx('✗ All grit — '+curDepth+'-bit gives only '+Math.pow(2,curDepth)+' loudness levels, so the wave snaps onto a coarse staircase. Raise the bit depth.',
+             '✗ 全是毛刺——'+curDepth+'-bit 只有 '+Math.pow(2,curDepth)+' 档响度, 波形被卡到粗糙的台阶上。把位深提上去。')
+        : tx('✗ Can\'t store it — '+songBytes(curRate,curDepth,SONG_DUR_SEC)+'B exceeds the '+SONG_BUDGET_BYTES+'B budget. Come DOWN to the lowest rate/depth that still keeps the note clean.',
+             '✗ 存不下——'+songBytes(curRate,curDepth,SONG_DUR_SEC)+'B 超过了 '+SONG_BUDGET_BYTES+'B 预算。<b>降</b>到仍能保持干净的最低采样率/位深。');
+      msg.innerHTML=m; songDrawWave(cv,curRate,curDepth);
     }
   };
-  if(solved){
-    mk(wrap,'div','margin-top:8px;'+K,tx('✓ Already restored. Feel free to keep experimenting with the sliders below — nothing here is graded twice.',
-                                          '✓ 已经修复过了。下面的按钮可以随便试——这里不会重复计分。'));
-  }
+  mk(foot,'button',BTN,tx('Reset','重置')).onclick=function(){ renderSong(el,api); };
   addHints(wrap,'med_p_song',MP3_HINTS);
 }
-/* WebAudio 演示: 判分与音频完全解耦, 仅供"听得出差别"的沉浸感; 无外部音频文件, 全部现场合成 */
+/* WebAudio 演示: 判分与音频完全解耦, 仅供"听得出差别"的沉浸感; 无外部音频文件, 全部现场合成.
+   playDegraded 做真实降采样(sample-hold)+量化, 绝不做变调(pitch-shift). */
 function playTone(ctx,freq,dur){
   try{
     var o=ctx.createOscillator(); o.type='sine'; o.frequency.value=freq;
@@ -756,8 +870,8 @@ var MP4_HINTS=[
     '提示 1/3: 问自己"这里丢一点信息, 真的会有人在乎吗?" 医疗、法律、母带类答案是"会"——选无损。随手拍的、一次性的、天天重复播的日常媒体, 答案通常是"不会"——选有损。'),
   B('Hint 2/3: three of the six items need Verbatim\'s vault (lossless): the X-ray, the concert master tape, the legal contract scan. The other three suit Gist\'s satchel (lossy).',
     '提示 2/3: 6 件里有 3 件该归 Verbatim 的保险柜 (无损): X 光片、音乐会母带、法律合同扫描件。另外 3 件适合 Gist 的褡裢 (有损)。'),
-  B('Hint 3/3: lossless → xray, masterTape, contract. Lossy → selfie, streamMix, wallpaper. 5 of 6 correct passes the vault.',
-    '提示 3/3: 无损 → X光片、音乐会母带、合同扫描。有损 → 自拍、循环背景乐、壁纸。6 件中答对 5 件即可过关。')
+  B('Hint 3/3 — worked example with DIFFERENT items: try these three first, none are in the vault. A scanned birth certificate → lossless (a legal record; one wrong pixel of a stamp could matter). A funny meme you\'re about to text → lossy (nobody inspects it pixel-by-pixel). A podcast\'s archived master → lossless (the keep-forever original). Notice the single test each time: "would ANY loss actually matter to someone?" Now put that same one question to each of the six real items.',
+    '提示 3/3 —— 换了物品的完整范例(例子·换了物品): 先判断这三件(它们都不在保管库里)。一张扫描的出生证明 → 无损(法律凭证, 印章错一个像素都可能出事)。一个你正要发出去的搞笑表情包 → 有损(没人会逐像素检查)。一档播客的存档母带 → 无损(要永久保存的原件)。留意每次都是同一个判据: "丢一丁点信息真的会有人在乎吗?" 现在把这同一个问题, 逐一套到六件真实物品上。')
 ];
 function renderVault(el,api){ _api(api);
   el.innerHTML='';
@@ -809,35 +923,55 @@ function renderVault(el,api){ _api(api);
 }
 
 /* --- 隐藏谜题: 裂纹相框里的秘密 --- */
+/* 「识破即解」: 不再让玩家逐字查表手打整句 —— 只要认出这是 ASCII 编码(选对类型),
+   机器就展开完整对照表并自动填出整句, 玩家确认即可(≤30s)。完整查表教学留在 domain_data.js。 */
 function renderSecret(el,api){ _api(api);
   el.innerHTML='';
   var wrap=mk(el,'div','padding:14px 18px;min-width:480px;max-width:640px;'+TXT);
-  header(wrap,tx('A Cracked Frame, Tucked Behind the Pillar','裂纹相框, 藏在立柱后面'),'?????');
   var solved=!!FLAG(api,'med_hidden_done');
+  header(wrap,tx('A Cracked Frame, Tucked Behind the Pillar','裂纹相框, 藏在立柱后面')+(solved?' <span style="'+K+'">✓</span>':''),'?????');
   if(solved){
     mk(wrap,'div','',tx('<span style="'+K+'">✓ “'+SECRET_MSG+'”</span> — you already read what this frame had to say.',
                          '<span style="'+K+'">✓ “'+SECRET_MSG+'”</span>——这面相框想说的话, 你已经读过了。'));
     return;
   }
   mk(wrap,'div','',tx(
-    'This frame\'s "restoration code" makes no sense as run-lengths — a run of 76 pixels in a 10-pixel-wide mural? That number is too large to be a pixel count. Suspiciously, every number here sits between 32 and 90...',
-    '这面相框的"修复码"当游程数完全说不通——在一幅只有10像素宽的壁画里, 哪来76个像素连续同色? 这数字大得不像像素计数。可疑的是, 这里每个数字都恰好落在 32 到 90 之间……'));
+    'This frame\'s "restoration code" makes no sense as run-lengths — a run of 76 in a 10-pixel-wide mural? Every number here sits between 32 and 90. So what kind of code is it really?',
+    '这面相框的"修复码"当游程数完全说不通——一幅只有10像素宽的壁画里, 哪来76个连续同色? 而且这里每个数字都恰好落在 32 到 90 之间。那它到底是哪种编码?'));
   var codeBox=mk(wrap,'pre','background:rgba(20,14,4,.6);border:1px solid #6a5a2a;padding:8px 10px;'+
     'color:#e8c98a;font-size:13px;letter-spacing:2px;margin:10px 0;',secretCodes().join('  '));
-  var input=mk(wrap,'input','width:260px;background:#160e04;color:#e8c98a;border:1px solid #6a5a2a;font-family:inherit;padding:5px;');
-  input.placeholder=tx('type the decoded message','输入解码后的信息');
-  var ctl=mk(wrap,'div','margin-top:8px;');
-  mk(ctl,'button',BTN_HOT,tx('Decode ▸','解码 ▸')).onclick=function(){
-    if(secretCheck(input.value)){
+  var msg=mk(wrap,'div','min-height:22px;font-size:12px;color:#ff9c6a;margin:6px 0;line-height:1.6;');
+  var opts=mk(wrap,'div','display:flex;gap:8px;flex-wrap:wrap;margin:6px 0;');
+  function reveal(){
+    /* 识破 → 展开完整 ASCII 对照表 + 自动填出整句 + 确认 */
+    opts.style.display='none'; msg.textContent='';
+    var codes=secretCodes();
+    var tbl='<div style="overflow-x:auto;"><table style="border-collapse:collapse;font-size:12px;margin:6px 0;">';
+    tbl+='<tr>'+codes.map(function(n){return '<td style="border:1px solid #6a5a2a;padding:3px 7px;color:#e8c98a;text-align:center;">'+n+'</td>';}).join('')+'</tr>';
+    tbl+='<tr>'+codes.map(function(n){return '<td style="border:1px solid #6a5a2a;padding:3px 7px;color:#ffce8a;text-align:center;">'+(n===32?'␣':esc(String.fromCharCode(n)))+'</td>';}).join('')+'</tr>';
+    tbl+='</table></div>';
+    mk(wrap,'div','margin-top:6px;'+K,tx('Cracked — it\'s ASCII. The machine fills in the whole table for you:','识破了——是 ASCII 码。机器替你把整张对照表都填好了:'));
+    mk(wrap,'div','',tbl);
+    mk(wrap,'div','font-size:15px;letter-spacing:3px;'+K+'margin-top:4px;',tx('Message: “'+SECRET_MSG+'”','读出: 「'+SECRET_MSG+'」'));
+    var cf=mk(wrap,'div','margin-top:8px;');
+    mk(cf,'button',BTN_HOT,tx('Confirm reading ▸','确认读出 ▸')).onclick=function(){
       S(api,'quest'); SET(api,'med_hidden_done'); STEP(api,'med_hidden','h2'); MARK(api,'med_hidden');
       GIVE(api,'med_secret_pigment',B('Secret Pigment','秘藏颜料'));
       TOAST(api,B('◈ Hidden find: those weren\'t pixel runs, they were ASCII codes — "'+SECRET_MSG+'"','◈ 隐藏发现: 那些根本不是像素游程, 是 ASCII 码——「'+SECRET_MSG+'」'),true);
       renderSecret(el,api);
-    }else{
-      S(api,'err');
-      msgFlash(wrap,tx('Not quite — these are ASCII codes, one number per letter. A=65, space=32.','不对——这些是 ASCII 码, 一个数字对应一个字母。A=65, 空格=32。'));
-    }
-  };
+    };
+  }
+  [ {k:'rle', t:B('RLE run-lengths','RLE 游程计数'),
+       why:tx('No — a run of 76 can\'t exist in a row only 10 pixels wide. These aren\'t pixel counts.','不对——一行只有10像素宽, 不可能有76个连续同色。这些不是像素计数。')},
+    {k:'caesar', t:B('Caesar-shifted letters','凯撒位移字母'),
+       why:tx('No — a Caesar cipher shifts letters, but these are already numbers. Read them as codes, not shifted letters.','不对——凯撒密码位移的是字母, 但这些本来就是数字。把它们当"编码"读, 不是位移字母。')},
+    {k:'ascii', t:B('ASCII codes (one number = one character)','ASCII 码(一个数字 = 一个字符)'), why:null}
+  ].forEach(function(c){
+    mk(opts,'button',BTN,T(c.t)).onclick=function(){
+      if(c.k==='ascii'){ S(api,'ok'); reveal(); }
+      else{ S(api,'err'); msg.textContent=c.why; }
+    };
+  });
 }
 
 /* ================================================================
@@ -849,11 +983,11 @@ var spec={
   interior:{ w:IW, h:IH, tiles:buildTiles(), playerStart:{x:12,y:15} },
 
   npcs:[
-    {id:'med_docent',  name:B('Docent Moiré','讲解员·Moiré'), color:'#e8c98a',x:13,y:14,dialog:docentDialog},
-    {id:'med_raster',  name:B('Restorer Raster','修复师·Raster'),       color:'#c9a24a',x:4, y:9, dialog:rasterDialog},
-    {id:'med_nyquist', name:B('Maestro Nyquist','指挥·Nyquist'),        color:'#7ad8c9',x:21,y:9, dialog:nyquistDialog},
-    {id:'med_verbatim',name:B('Verbatim, the Lossless','逐字姐·Verbatim'),color:'#e0d0a0',x:8, y:3, dialog:verbatimDialog},
-    {id:'med_gist',    name:B('Gist, the Lossy','写意妹·Gist'),         color:'#e0a0a0',x:17,y:3, dialog:gistDialog},
+    {id:'med_docent',  name:B('Docent Moiré','讲解员·Moiré'), color:'#e8c98a',x:13,y:14,dialog:sigWrap(docentDialog,sigDocent)},
+    {id:'med_raster',  name:B('Restorer Raster','修复师·Raster'),       color:'#c9a24a',x:4, y:9, dialog:sigWrap(rasterDialog,sigRaster)},
+    {id:'med_nyquist', name:B('Maestro Nyquist','指挥·Nyquist'),        color:'#7ad8c9',x:21,y:9, dialog:sigWrap(nyquistDialog,sigNyquist)},
+    {id:'med_verbatim',name:B('Verbatim, the Lossless','逐字姐·Verbatim'),color:'#e0d0a0',x:8, y:3, dialog:sigWrap(verbatimDialog,sigVerbatim)},
+    {id:'med_gist',    name:B('Gist, the Lossy','写意妹·Gist'),         color:'#e0a0a0',x:17,y:3, dialog:sigWrap(gistDialog,sigGist)},
   ],
 
   steles:[
@@ -921,7 +1055,8 @@ var spec={
             '讲解员·Moiré 有一张一直不敢去量的老照片。算出它的字节数, 给它找个合适的框。'),
      syllabus:'9618 §1.3 Images — applied file-size calculation',
      steps:[
-       {id:'p1',text:B('Hear Docent Moiré\'s request','听讲解员·Moiré的请求')},
+       /* step.check: 对话型步骤 —— 已听到讲解员请求(med_photo_asked 置位)即回溯打勾 */
+       {id:'p1',text:B('Hear Docent Moiré\'s request','听讲解员·Moiré的请求'),check:function(api){return !!FLAG(api,'med_photo_asked');}},
        {id:'p2',text:B('Work out 50×40px at 4-bit depth, in bytes','算出 50×40 像素、4 bit 色深的字节数')},
        {id:'p3',text:B('Tell them which frame it actually fits','告诉他们它到底配得上哪个框')},
      ]},
@@ -930,8 +1065,9 @@ var spec={
             'Verbatim 和 Gist 已经好多年没在任何事上达成过一致。在保管库真正逼你做选择之前, 先把两边的道理都听完。'),
      syllabus:'9618 §1.5 Compression — lossy vs lossless (narrative primer for the Vault boss)',
      steps:[
-       {id:'t1',text:B('Hear Verbatim out','听 Verbatim 讲完')},
-       {id:'t2',text:B('Hear Gist out','听 Gist 讲完')},
+       /* step.check: 供引擎 reevalSteps 对旧存档回溯打勾 —— 只要「听完」标记已置位即视为完成 */
+       {id:'t1',text:B('Hear Verbatim out','听 Verbatim 讲完'),check:function(api){return !!FLAG(api,'med_verbatim_heard');}},
+       {id:'t2',text:B('Hear Gist out','听 Gist 讲完'),check:function(api){return !!FLAG(api,'med_gist_heard');}},
      ]},
     {id:'med_hidden',line:'hidden',title:B('The Cracked Frame\'s Secret','裂纹相框的秘密'),
      desc:B('A restoration code behind a pillar doesn\'t describe any picture at all. Something else is hiding in those numbers.',
@@ -1059,12 +1195,47 @@ var spec={
     canonicalRunsForMural:canonicalRunsForMural,tokenCount:tokenCount,MURAL_PAR:MURAL_PAR,
     playerRunsValid:playerRunsValid,
     bitsFor:bitsFor,bytesFor:bytesFor,ARTWORKS:ARTWORKS,FRAMES:FRAMES,bestFrame:bestFrame,frameJudge:frameJudge,
-    SOUND_MIN_RATE:SOUND_MIN_RATE,SOUND_MIN_DEPTH:SOUND_MIN_DEPTH,SOUND_DUR_SEC:SOUND_DUR_SEC,
-    SOUND_RATES:SOUND_RATES,SOUND_DEPTHS:SOUND_DEPTHS,
-    soundPasses:soundPasses,soundBytes:soundBytes,isOptimalSoundChoice:isOptimalSoundChoice,
+    SONG_TOP_HZ:SONG_TOP_HZ,SONG_MIN_RATE:SONG_MIN_RATE,SONG_MIN_DEPTH:SONG_MIN_DEPTH,SONG_DUR_SEC:SONG_DUR_SEC,
+    SONG_BUDGET_BYTES:SONG_BUDGET_BYTES,SONG_RATES:SONG_RATES,SONG_DEPTHS:SONG_DEPTHS,
+    songBytes:songBytes,songRateKeepsTop:songRateKeepsTop,songDepthAdequate:songDepthAdequate,
+    songFitsBudget:songFitsBudget,songAliasHz:songAliasHz,songPasses:songPasses,
+    songDiagnose:songDiagnose,songOptimal:songOptimal,
     ARCHIVE_ITEMS:ARCHIVE_ITEMS,VAULT_PASS:VAULT_PASS,judgeArchive:judgeArchive,scoreVault:scoreVault,
     SECRET_MSG:SECRET_MSG,secretCodes:secretCodes,secretDecode:secretDecode,secretCheck:secretCheck,
     buildTiles:buildTiles,IW:IW,IH:IH,
+    /* 纯函数断言集 —— node 单测: spec._test.run() -> {pass,fail,failures} */
+    run:function(){
+      var pass=0,fail=0,failures=[];
+      function chk(name,cond){ if(cond)pass++; else{fail++;failures.push(name);} }
+      // 谜题1 · RLE 壁画
+      chk('mural: canonical runs decode back to each row', MURAL_ROWS.every(function(r){return runsEqualPixels(encodeRunsForRow(r),strToPixels(r));}));
+      chk('mural: muralComplete accepts the target grid', muralComplete(MURAL_ROWS.map(strToPixels)));
+      chk('mural: muralComplete rejects an all-dark grid', !muralComplete(MURAL_ROWS.map(function(){return new Array(MURAL_W).fill(0);})));
+      chk('mural: playerRunsValid accepts canonical code', playerRunsValid(canonicalRunsForMural()));
+      chk('mural: PAR equals canonical token count', MURAL_PAR===tokenCount(canonicalRunsForMural()));
+      // 谜题2 · 相框选型
+      chk('frame: 64x48x8 = 3072 bytes', bytesFor(64,48,8)===3072);
+      chk('frame: bestFrame(3072) is the memory crystal', (bestFrame(3072,FRAMES)||{}).id==='crystal');
+      chk('frame: stamp (8x8x1=8B) best-fits the locket', frameJudge(ARTWORKS[0],'locket',FRAMES));
+      chk('frame: every artwork has exactly one best frame', ARTWORKS.every(function(a){return !!bestFrame(bytesFor(a.w,a.h,a.depth),FRAMES);}));
+      // 谜题3 · 走调的歌 (规格/预算/走样/位深)
+      chk('song: min rate = 2x top note', SONG_MIN_RATE===2*SONG_TOP_HZ);
+      chk('song: (8000,8) is the ONLY passing offered combo', SONG_RATES.every(function(r){return SONG_DEPTHS.every(function(d){ var want=(r===SONG_MIN_RATE&&d===SONG_MIN_DEPTH); return songPasses(r,d)===want; });}));
+      chk('song: below-Nyquist rate diagnosed lowrate', songDiagnose(4000,8)==='lowrate');
+      chk('song: inadequate depth diagnosed grit', songDiagnose(8000,4)==='grit');
+      chk('song: over-budget picks diagnosed overbudget', songDiagnose(11025,8)==='overbudget'&&songDiagnose(8000,16)==='overbudget');
+      chk('song: aliasing — top note kept at min rate, folded below', songAliasHz(SONG_MIN_RATE)===SONG_TOP_HZ&&songAliasHz(4000)!==SONG_TOP_HZ);
+      chk('song: budget excludes 16-bit even at min rate', !songFitsBudget(SONG_MIN_RATE,16));
+      chk('song: optimal == the unique passing combo', songOptimal(SONG_MIN_RATE,SONG_MIN_DEPTH)&&songPasses(SONG_MIN_RATE,SONG_MIN_DEPTH));
+      chk('song: byte formula 8000x8x3/8 = 24000', songBytes(8000,8,3)===24000);
+      // 谜题4 · 保管库 (有损/无损)
+      chk('vault: all-correct choices score 6/6', scoreVault(ARCHIVE_ITEMS,ARCHIVE_ITEMS.reduce(function(o,it){o[it.id]=it.correct;return o;},{})).correct===ARCHIVE_ITEMS.length);
+      chk('vault: judgeArchive xray -> lossless', judgeArchive(ARCHIVE_ITEMS[0],'lossless')&&!judgeArchive(ARCHIVE_ITEMS[0],'lossy'));
+      // 隐藏 · ASCII 秘密
+      chk('secret: codes decode to the message', secretDecode(secretCodes())===SECRET_MSG);
+      chk('secret: secretCheck trims + is case-insensitive', secretCheck('  look closer '));
+      return {pass:pass,fail:fail,failures:failures};
+    }
   }
 };
 

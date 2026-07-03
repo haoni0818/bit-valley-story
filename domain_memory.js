@@ -545,8 +545,8 @@ function renderStack(el,api){
       '复习一下: 栈 (stack) 永远只让你碰最上面那个, 碰不到中间。想象橱柜里叠的一摞盘子: 拿走最上面的(POP), 或者把干净盘子放最上面(PUSH)。想从中间抽一个, 整摞就塌了。这就是栈的全部规矩。(📖 想细看, 翻图鉴里的「Stack」条目。)'),
     B('Apply it here: the book you must deliver FIRST (Chronicles of the Heap) is buried under the book you must deliver LAST (The LIFO Codex). You can\'t reach through the tower — so temporarily <b>PUSH the top book onto the return cart</b> (your second, "temp" stack). That uncovers the book you actually need, and you POP it back later.',
       '用到这题上: 你第一个要交的书(《堆区编年史》)被最后才要交的《LIFO 圣典》压在最上面。你穿不过塔身去拿它, 所以先把顶上那本 <b>PUSH 到归还车(第二个"临时"栈)</b>——这样才能露出你真正要的那本, 之后再把它 POP 回来。'),
-    B('Answer, 4 moves: ① Main→Temp (Codex) ② POP Main (Chronicles of the Heap) ③ POP Main (Recursion Canyon Gazetteer) ④ POP Temp (Codex). Limit is 12 — room to regret twice.',
-      '答案 4 步: ① 主栈→临时(圣典) ② 取出主栈顶(堆区编年史) ③ 取出主栈顶(递归峡谷志) ④ 取出临时栈顶(圣典)。上限 12 步, 足够你反悔两回。')
+    B('Worked example (different books): a pile is, bottom→top, [Alpha, Beta, Gamma], so Gamma is on top. The slip wants them handed over as Beta, then Alpha, then Gamma. Gamma is on top yet must go LAST, blocking the two you owe first. Four moves: (1) PUSH Gamma onto the return cart (your temp stack) — that uncovers Beta; (2) POP Beta off the main pile and hand it over (slip #1 ✓); (3) POP Alpha and hand it over (#2 ✓); (4) POP Gamma back off the temp cart and hand it over (#3 ✓). You only ever touched a TOP. Your tower is the same shape: park the book that must be delivered last onto temp, deliver the ones beneath it in order, then pop the parked one back.',
+      '例子(换了书): 一摞书从下到上是 [Alpha, Beta, Gamma], 所以 Gamma 在顶上。借阅单要求依次交出 Beta、Alpha、Gamma。Gamma 在顶上却要最后才交, 挡住了你先要交的两本。四步: (1) 把 Gamma <b>PUSH</b> 到归还车(临时栈)——这样露出 Beta; (2) 从主栈 <b>POP</b> 出 Beta 交出(单子第①项 ✓); (3) POP 出 Alpha 交出(第②项 ✓); (4) 从临时车 POP 回 Gamma 交出(第③项 ✓)。全程只碰栈顶。你的书塔是同一个形状: 把「最后才交」的那本先寄存到临时栈, 按顺序交出它下面的, 再把寄存的那本 POP 回来。')
   ]);
 }
 
@@ -777,8 +777,8 @@ function renderList(el,api){
       '复习一下: 链表 (linked list) 是一串"箱子"连起来的; 每个箱子装一个数据值, 外加一个箭头(next), 指向下一个箱子。你不用背下所有地址, 只需要知道"接下来去哪"。从 <b>HEAD</b> 出发, 一路顺着 next 走, 直到走到 <b>NULL</b>——意思是"链到头了"。(📖 完整讲解见图鉴里的「Linked List」条目。)'),
     B('Apply it here: first sort the 5 values in your head — 7, 23, 42, 64, 91. Point HEAD at 7. Each node\'s next should point at the value one step bigger. The last one (91) must point at NULL — point it at any earlier node instead and you create a cycle (an endless loop that never reaches NULL); leave any arrow unset ("wild") and the walk crashes.',
       '用到这题上: 先在心里把 5 个数据排好序——7、23、42、64、91。HEAD 指向 7; 每个节点的 next 都指向比它大一号的那个。最后一个(91)的 next 必须指向 NULL——指回前面任何一个节点都会变成环 (cycle, 走不到头的死循环); 哪个箭头还没接(还是"野指针"), 遍历时就会直接崩溃。'),
-    B('Answer: HEAD→0x0C10(7), 7→0x2A40(23), 23→0x1F08(42), 42→0x3B70(64), 64→0x2F00(91), 91→NULL. Note 42 lives at 0x1F08 — messy addresses are fine, that\'s the whole point of a linked list.',
-      '答案: HEAD→0x0C10(7), 7→0x2A40(23), 23→0x1F08(42), 42→0x3B70(64), 64→0x2F00(91), 91→NULL。42 住在 0x1F08——地址乱不要紧, 链表本来就不在乎住哪儿。')
+    B('Worked example (different values): say three nodes hold 9 at address 0xAA, 2 at 0xBB, 5 at 0xCC, and you want ascending order. Step 1: sort the VALUES in your head → 2, 5, 9. Step 2: HEAD points at the node holding the smallest, so HEAD → 0xBB (value 2). Step 3: each node\'s next points at the node holding the next-bigger value → 0xBB(2).next → 0xCC(5), then 0xCC(5).next → 0xAA(9). Step 4: the largest value, 9, is the tail, so 0xAA.next → NULL. Walk it from HEAD following next and you read 2, 5, 9 then stop at NULL — no cycle, no wild pointer. Do exactly this with your five values: sort them first, point HEAD at the smallest, chain smallest→…→largest, and let the largest point at NULL.',
+      '例子(换了数值): 假设三个节点分别装 9(地址 0xAA)、2(0xBB)、5(0xCC), 要求升序。第1步: 在心里把<b>数值</b>排好——2、5、9。第2步: HEAD 指向装最小值的节点, 即 HEAD → 0xBB(值 2)。第3步: 每个节点的 next 指向装「大一号」值的节点——0xBB(2).next → 0xCC(5), 再 0xCC(5).next → 0xAA(9)。第4步: 最大的 9 是尾, 所以 0xAA.next → NULL。从 HEAD 顺着 next 走, 读出 2、5、9 然后停在 NULL——无环、无野指针。拿你的五个数值照做: 先排序, HEAD 指最小, 从小到大串起来, 最大的那个指 NULL。')
   ]);
 }
 
@@ -1146,9 +1146,8 @@ function renderTemple(el,api){
       'seating ledger below for the current occupied-count before you choose.',
       '用到这题上: 看 rear 就知道下一个人坐哪儿, 看 front 就知道下次钟声谁走。遇到两个刁钻时刻——'+
       '四座已满又来人, 或者环已空却响钟——先翻下面的座次簿, 看清当前占用数再选。'),
-    B('Answer: the three judgement points are, in order, <b>reject (awk)</b>, <b>idle</b>, <b>reject (ps)</b>. Every other arrival '+
-      'and every other bell has an obvious seat to take or a clear front to call — no ambiguity there.',
-      '答案: 三个判定点依次是 <b>回绝(awk)</b>、<b>空响</b>、<b>回绝(ps)</b>。其余每次抵达都有明确空位, 每次钟声都有明确的 front, 没有歧义。')
+    B('Worked example (different ring): a 3-seat circular queue, count starts at 0. Say A, B, C arrive (count 0→1→2→3, all seats taken), then D arrives. Check the ledger at that instant: count===cap===3, the ring is FULL, so the only lawful move is to turn D away — <b>reject</b>. Later, after enough bells empty it back to count 0, another bell rings: count===0, the ring is EMPTY, there is no front to summon, so the bell goes unanswered — <b>idle</b>. The rule you just used: at each tricky moment read the current count — full ⇒ reject the arrival, empty ⇒ idle on the bell. Apply that same count-check at each of your own decision points and the choice stops being a guess.',
+      '例子(换了环): 一个 3 座的环形队列, count 从 0 起。假设 A、B、C 依次抵达(count 0→1→2→3, 三座坐满), 然后 D 来了。此刻翻账: count===cap===3, 环已<b>满</b>, 唯一合法动作就是回绝 D——<b>reject</b>。之后若干次钟声把它清空回 count 0, 又响一记钟: count===0, 环已<b>空</b>, 没有 front 可传唤, 这记钟无人应答——<b>idle(空响)</b>。你刚用到的规则: 每个刁钻时刻先读当前 count——满 ⇒ 回绝来人, 空 ⇒ 钟声空响。把这套 count 判据用在你自己的每个判定点上, 选择就不再是猜。')
   ]);
 }
 
@@ -1426,8 +1425,8 @@ function renderTempleLRU_Reserved(el,api){
       '复习一下: 缓存 (cache) 的位置数是固定的。位置满了又来新东西时, LRU 的规则是: 送走「<b>最久没被用过</b>」的那个。陷阱在于: 再次用到某个东西(命中 hit)会刷新它的时钟——所以刚被用过的那个反而是最新鲜的, 不是最旧的。(📖 完整讲解见图鉴里的「LRU Cache」条目。)'),
     B('Apply it here: keep a note for each altar — the step number it was last used (moving in AND returning both count as "used"). When someone must be evicted, send off whoever has the SMALLEST step number. It\'s all written in the incense ledger below — don\'t go by gut.',
       '用到这题上: 给每个祭坛记一个数——它上次被用到时的步号(入驻和回访都算"用过")。要淘汰时, 送走步号<b>最小</b>的那个。下面的香火簿里全都写着, 别凭感觉。'),
-    B('Answer: the three evictions are <b>ps, vi, awk</b> in that order. sh and cc both came back mid-sequence and renewed their incense, so it is never their turn.',
-      '答案: 三次淘汰依次送走 <b>ps、vi、awk</b>。sh 和 cc 中途回访续过香火, 所以每次都轮不到它们。')
+    B('Worked example (different names): a 2-slot LRU cache, accessed in the order X, Y, X, Z. Keep each one\'s last-used step: X at step 1, Y at step 2. At step 3 X is used again — a HIT — so X\'s clock resets to step 3, making X the freshest and Y now the oldest. At step 4 Z arrives and the cache is full → evict the SMALLEST last-used step, which is Y (step 2), NOT X. Y is the victim precisely because X renewed itself. The method: for every altar note its last-used step (moving in AND revisiting both count), and when full send off the smallest. Read your incense ledger and apply it — a pilgrim who came back is never the one you evict.',
+      '例子(换了名字): 一个 2 位的 LRU 缓存, 访问顺序为 X、Y、X、Z。给每个记「上次用到的步号」: X 在第 1 步、Y 在第 2 步。第 3 步又用到 X——<b>命中(hit)</b>——于是 X 的时钟刷新到第 3 步, X 变最新、Y 变最旧。第 4 步 Z 到来且缓存已满 → 淘汰「上次步号<b>最小</b>」的那个, 即 Y(第 2 步), <b>不是</b> X。Y 被淘汰, 正因为 X 自己续了命。方法: 给每个祭坛记下上次用到的步号(入驻和回访都算), 满了就送走最小的那个。翻你的香火簿照做——回访过的朝圣者, 永远不是你要淘汰的那个。')
   ]);
 }
 
@@ -1537,6 +1536,7 @@ function grannyDialog(api){
         '这三条是本店仅有的售后。'),next:-1}
     ];
     nodes.onEnd=function(){SET(api,'mem_met_granny');STEP(api,'mem_m1');};
+    nodes.sig='intro';
     return nodes;
   }
 
@@ -1568,10 +1568,11 @@ function grannyDialog(api){
       '<span class="dim">(她从老花镜上方看你——那是她留给"已结清账目"的眼神)</span><br>'+
       '五重书塔、双向的链、盲算账本。<span class="k">三项挑战, 三张干净的回执。</span><br>'+
       '等这条迷宫终于被回收的那天, 我会告诉回收者: 这个人, 记在<span class="k">资产</span>一栏。'),next:-1});
+    nodes.sig=allCh?'lru_all':'lru';
     return nodes;
   }
   if(sd&&ld){
-    return [fixed,
+    var g_bl=[fixed,
       {sp:SP,t:B(
         'The library runs, the chain holds. A moment ago the stone door up north went <span class="k">clack</span> — the Temple is waiting for you.',
         '书库顺了, 链也接上了。北面的石门方才「咔」了一声——<span class="k">神庙在等你</span>。')},
@@ -1580,9 +1581,10 @@ function grannyDialog(api){
         '<span class="dim">Don\'t guess by feel. Count the seats.</span>',
         '进去记牢一句: <span class="k">front 走, rear 来, 环满了就是满了, 想也想不出第五个座位</span>。'+
         '<span class="dim">别凭感觉猜。数清楚座位数。</span>'),next:-1}];
+    g_bl.sig='both_done';return g_bl;
   }
   if(sd&&!ld){
-    return [fixed,
+    var g_so=[fixed,
       {sp:SP,t:B(
         'Heard about the library — clean work. The <span class="k">Broken Chain Cloister</span> east still waits. '+
         'Remember: linked lists know each other by pointer, not by postcode. <span class="k">Data ascending, tail into NULL.</span><br>'+
@@ -1590,9 +1592,10 @@ function grannyDialog(api){
         '书库那边我听说了, 干净利落。还差东边的<span class="k">断链回廊</span>——'+
         '记着: 链表靠指针相认, 不靠住址。<span class="k">数据升序, 尾指 NULL</span>。'+
         '<span class="dim">千万别连成环。上一个连成环的, 现在还在里面跑圈。</span>'),next:-1}];
+    g_so.sig='stack_only';return g_so;
   }
   if(!sd&&ld){
-    return [fixed,
+    var g_ld=[fixed,
       {sp:SP,t:B(
         'Chain\'s mended? Good hands. The <span class="k">Stack Library</span> north-west remains — '+
         'in at the top, out at the top, <span class="k">LIFO</span>, no third verb. '+
@@ -1600,8 +1603,9 @@ function grannyDialog(api){
         '链接上了? 好手艺。还剩西北的<span class="k">栈书库</span>——'+
         '塔顶进, 塔顶出, <span class="k">LIFO</span>, 没有第三种动作。'+
         '压在下面的书别硬抽, 用旁边的归还车倒腾。<span class="dim">书塌了算你借的。</span>'),next:-1}];
+    g_ld.sig='list_only';return g_ld;
   }
-  return [fixed,
+  var g_none=[fixed,
     {sp:SP,t:B(
       'Both still broken. The <span class="k">Stack Library</span> north-west, the <span class="k">Broken Chain Cloister</span> east — '+
       'fix those, then we talk temples. <span class="dim">(She goes back to the ledger. A page turns; it is solid, unreturned loans, top to bottom.)</span>',

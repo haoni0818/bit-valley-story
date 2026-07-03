@@ -439,8 +439,8 @@ function renderUtil(el, api){ _api(api);
       '概念——"碎片化"就是一个文件的块被打散、中间夹着空洞; "整理好"就是每个文件连成不间断的一整段、空闲全在最后。病毒那边: 特征码 (signature) 是某个已知恶意软件必然携带的固定字节图案。'),
     B('Apply — swap blocks so all the A\'s sit together, then all the B\'s, then C, then the free cells. For the virus, scan each file\'s raw bytes for the exact string X5O!P% — only one file has it.',
       '应用——交换块, 让所有 A 挨在一起, 再是所有 B, 再是 C, 空闲格垫最后。病毒那边, 逐个文件在原始字节里搜一模一样的 X5O!P%, 只有一个文件含它。'),
-    B('Answer — target disk: A A B B C · · ·. Infected file: free_robux.exe (the only one carrying X5O!P%). "Too good to be free" is itself the tell.',
-      '答案——目标磁盘: A A B B C · · ·。染毒文件: 免费点券.exe (唯一携带 X5O!P% 的)。"免费到不真实"本身就是破绽。')
+    B('Worked example (a different, smaller disk) — start: B · A B A. Swap cell 1 with cell 3: B B A · A. Swap cell 3 with cell 4: B B A A ·. Now every file is one solid run and the free cell sits at the tail — done in two swaps. Your disk plays by the same two rules, just with three files: group the same letters together, push every · to the right. For the virus: ignore the filenames entirely — press the signature string against each file\'s raw bytes, character by character; exactly one file contains it.',
+      '例子(换了一块更小的磁盘)——初始: B · A B A。把第 1 格和第 3 格交换: B B A · A; 再把第 3 格和第 4 格交换: B B A A ·。每个文件各成一整段、空闲格垫在尾巴——两次交换搞定。你的磁盘规则一样, 只是文件多一个: 相同字母归拢, 所有 · 推到最右。病毒那边: 完全别看文件名——把特征码那串字符逐个按到每个文件的原始字节上比对, 恰好只有一个文件含它。')
   ]);
 }
 
@@ -542,8 +542,8 @@ function renderOS(el, api){ _api(api);
       '概念——操作系统给每个运行中的程序划一段私有的 RAM, 让它们永远不会互相覆盖。RAM 总量固定又不大, 而操作系统自己始终常驻, 所以有几格是禁区。'),
     B('Apply — you have 10 free cells (2–11) and four programs of size 3+2+4+1 = 10. It fits perfectly only if you leave no gaps. Try placing the big one (Compiler, 4) first.',
       '应用——你有 10 个空格 (2–11), 四个程序大小 3+2+4+1 = 10。只有不留任何缝隙才刚好塞下。先放最大的那个 (编译器, 4 格) 试试。'),
-    B('Answer — one valid layout: Editor(P1) at 2, Player(P2) at 5, Compiler(P3) at 7... no. Fit them back-to-back from cell 2 with no gaps, e.g. P3@2, P1@6, P2@9, P4@11.',
-      '答案——一种可行摆法: 从第 2 格起一个挨一个、不留缝, 例如 编译器P3 放 2, 编辑器P1 放 6, 播放器P2 放 9, 时钟P4 放 11。')
+    B('Worked example (different numbers) — a RAM of 8 cells, cells 0–1 reserved, three programs sized 3, 2 and 1 (total 6 = exactly the 6 free cells). Pack them flush: the 3-cell one starts at cell 2 (fills 2–4), the 2-cell one starts at 5 (fills 5–6), the 1-cell one takes 7. Leave a gap anywhere — say the 3-cell one at 3 instead — and the last program no longer fits. Yours is the same trick with four programs: start at the first cell after the kernel, and give each next program the cell right after the previous one ends. In what order you drop them doesn\'t matter; gaps do.',
+      '例子(换了数字)——一条 8 格的 RAM, 第 0–1 格预留, 三个程序大小 3、2、1 (总共 6 = 恰好 6 个空格)。贴紧了放: 3 格的从第 2 格开始 (占 2–4), 2 格的从 5 开始 (占 5–6), 1 格的占 7。任何地方留缝——比如 3 格的改放在 3——最后一个程序就塞不下了。你的题是同一招、换成四个程序: 从内核后的第一格开始, 每个程序都紧贴上一个的结尾。先放谁后放谁无所谓; 有没有缝才要命。')
   ]);
 }
 
@@ -697,8 +697,8 @@ function renderTranslate(el, api){ _api(api);
       '概念——编译官 (compiler): 运行任何东西之前先把整段程序翻译完, 最后列出所有错误, 并产出运行又快又多的目标代码。解释官 (interpreter): 一次翻译并运行一行, 一撞到错误就当场停 (它之前的行已经跑过了)。汇编官 (assembler): 把汇编语言 (低级) 翻成机器码, 一个助记符对一条指令。'),
     B('Apply — match the goal to the behaviour: want partial execution + the exact failing line? That is the line-by-line one. Given assembly? Only one translator speaks it. Want fastest repeated runs via reusable object code? That is the translate-once one.',
       '应用——把目标对上行为: 要"部分执行 + 精确到出错那一行"? 那就是逐行的那位。给的是汇编? 只有一位翻译官会说它。要"靠可复用目标代码把重复运行跑到最快"? 那就是"只翻一次"的那位。'),
-    B('Answer — Round 1: Interpreter (partial run, stops on the faulty line). Round 2: Assembler (it is the only one that handles assembly). Round 3: Compiler (produces object code once → fastest for a million runs).',
-      '答案——回合 1: 解释官 (部分执行, 停在出错行)。回合 2: 汇编官 (唯一处理汇编的)。回合 3: 编译官 (只产出一次目标代码 → 跑一百万次最快)。')
+    B('Worked example (a job from OUTSIDE these rounds) — "my script runs once a year, and when it breaks I want to fix exactly the line that broke": read off the requirements → runs rarely, so object-code speed buys nothing; needs a partial run that halts on the precise faulty line → hint 1\'s table says exactly one translator behaves like that. Do the same for each round here: circle the ONE deciding requirement in the goal text (a partial run with a precise stop? the source is written in assembly itself? reusable object code for a million runs?) — each of those properties belongs to exactly one row of the table.',
+      '例子(这三回合之外的一单活)——「我的脚本一年才跑一次, 坏了的时候我要精确修坏掉的那一行」: 把需求读出来 → 很少运行, 目标代码的速度优势毫无意义; 要"部分执行 + 停在出错那一行" → 提示 1 的表里恰好只有一位翻译官是这个行为。对这里的每个回合做同样的事: 把目标里那一个决定性的需求圈出来 (要部分执行、精确停? 源码本身就是汇编? 要可复用目标代码跑一百万次?)——每种性质在表里恰好只属于一行。')
   ]);
 }
 
@@ -785,8 +785,8 @@ function renderIDE(el, api){ _api(api);
       '概念——断点 (breakpoint) 让程序停在你指定的一行; 单步 (single-step) 一次只跑一行; 监视 (watch) 显示某个变量的当前值。三者合起来, 让你精确看到一个值是从什么时候开始变错的。'),
     B('Apply — step from the top, comparing x to the intended value each line. The first line where they differ is the bug.',
       '应用——从头单步, 每一行都把 x 和预期值比一下。第一个不相等的行, 就是 bug。'),
-    B('Answer — intended: 5 → 8 → 10 → 9. Actual: 5 → 8 → 16 → 15. They first differ at line 3 (x*2 instead of x+2). Breakpoint on line 3.',
-      '答案——预期: 5 → 8 → 10 → 9。实际: 5 → 8 → 16 → 15。第一次不同在第 3 行 (写成了 x*2 而非 x+2)。断点下在第 3 行。')
+    B('Worked example (a different program) — intended trace: 2 → 6 → 7; actual trace: 2 → 8 → 9. Compare position by position: step 1 matches (2 = 2), step 2 differs (6 vs 8) → the bug lives on line 2, breakpoint there. Note line 3 ALSO shows a wrong value (7 vs 9) — but it is only inheriting the damage; the breakpoint goes on the FIRST divergence, never a later one. Now build both traces for your program: step through, writing x down after every line for the intended and the actual run, and stop at the first mismatch.',
+      '例子(换了一段程序)——预期轨迹: 2 → 6 → 7; 实际轨迹: 2 → 8 → 9。逐位置比对: 第 1 步一致 (2 = 2), 第 2 步不同 (6 vs 8) → bug 在第 2 行, 断点下在那儿。注意第 3 行的值也是错的 (7 vs 9)——但它只是在继承伤害; 断点永远下在第一次偏离处, 不是后面。现在给你的程序建这两条轨迹: 单步走, 每行之后把预期的 x 和实际的 x 都记下来, 停在第一处不一致。')
   ]);
 }
 
@@ -853,8 +853,8 @@ function renderBabel(el, api){ _api(api);
       '概念——这是恺撒位移: 每个字母都往后挪了固定的格数。反编译就是把每个字母往回挪同样的格数。'),
     B('Apply — just try keys 1 through 25 in the box and watch the live preview until it reads like English.',
       '应用——在框里从 1 试到 25, 盯着实时预览, 直到它读起来像人话。'),
-    B('Answer — the key is 7. The poem reads: "we were all / one language once / then someone / ran the compiler".',
-      '答案——钥匙是 7。诗是: 「we were all / one language once / then someone / ran the compiler」(我们本是一体 / 曾说同一种语言 / 后来有人 / 运行了编译器)。')
+    B('Worked example (different key) — if the word "cat" had been compiled with key 3, the stone would read "fdw": c→f, a→d, t→w, every letter pushed forward 3. Typing 3 into the decompile box pulls each letter back 3 and "cat" resurfaces. Your stone used some other key, and there are only 25 candidates: sweep the box from 1 upward while staring at the shortest cipher word in the live preview — the instant it becomes a real English word, you have the key; check it against the other lines.',
+      '例子(换了钥匙)——如果单词 "cat" 被用钥匙 3 编译过, 碑上就会写 "fdw": c→f, a→d, t→w, 每个字母往前推 3 格。在反编译框里填 3, 每个字母被拉回 3 格, "cat" 就浮出来了。你这块碑用的是另一把钥匙, 而候选只有 25 个: 从 1 往上扫, 盯着实时预览里最短的那个密文词——它一变成真正的英文单词, 钥匙就到手了; 再拿其余几行验一遍。')
   ]);
 }
 
@@ -865,29 +865,33 @@ function renderBabel(el, api){ _api(api);
 /* --- 系统官 KERNEL —— OS 拟人, 疲惫的老楼管, 发主线 --- */
 function kernelDialog(a){ _api(a);
   var SP=B('KERNEL','系统官 KERNEL');
+  var nodes;
   if(getFlag('sys_tr_done')){
-    return [
+    nodes=[
       {sp:SP,t:B('The whole tower translates again — I can feel every layer talking to the one above and below it. Twenty years I ran this building with nobody to run it for. Thank you, little process.',
                  '整座塔又开始翻译了——我能感觉到每一层都在和它上下相邻的那层说话。二十年了, 我替一栋没有房客的楼当楼管。谢谢你, 小进程。')},
       {sp:SP,t:B('An operating system is a strange thing to be. You are the floor everyone stands on and nobody looks down at. <span class="dim">...The three up top still argue about which language is best. Let them. It is the most alive this place has felt in decades.</span>',
                  '当一个操作系统, 是件古怪的事。你是所有人脚下站着、却没人低头看一眼的那层地板。<span class="dim">……塔顶那三位还在吵哪种语言最好。让他们吵吧。这是这地方几十年来最有生气的一次了。</span>')}
     ];
+    nodes.sig='all_done'; return nodes;
   }
   if(getFlag('sys_os_done')){
-    return [
+    nodes=[
       {sp:SP,t:B('Memory\'s in order, the Kernel Layer holds. All that\'s left is the <span class="k">Translation Core</span> at the very top — the reason this tower was ever built. It has been stalled for twenty years.',
                  '内存理顺了, 内核层稳住了。只剩最顶上的<span class="k">翻译核心</span>——这座塔当初就是为它而建的。它停摆了二十年。')},
       {sp:SP,t:B('Three translators guard it. Fair warning: they don\'t so much explain themselves as <span class="k">behave like what they are</span>. Watch how each one moves. That IS the lesson.',
                  '三位翻译官守着它。提醒你: 他们与其说会解释自己, 不如说会<span class="k">活成自己本来的样子</span>。看他们各自怎么动——那就是答案。')}
     ];
+    nodes.sig='os_done'; return nodes;
   }
   if(getFlag('sys_util_done')){
-    return [
+    nodes=[
       {sp:SP,t:B('Gears turning again. Next: the <span class="k">Kernel Layer</span> just above. Its memory map is a mess — programs squatting wherever they landed. Sort out who gets which memory. That\'s my oldest job.',
                  '齿轮又转起来了。接下来: 就在上面的<span class="k">内核层</span>。它的内存图乱成一团——程序落在哪就赖在哪。理清楚谁分到哪段内存。那是我最老的一份差事。')}
     ];
+    nodes.sig='util_done'; return nodes;
   }
-  return [
+  nodes=[
     {sp:SP,t:B('Halt — oh. Not a job. A <span class="k">process</span>. A live one. It has been a long time since anything alive climbed in here.',
                '站住——哦。不是个任务 (job)。是个<span class="k">进程 (process)</span>。还是活的。已经很久没有活的东西爬进来了。')},
     {sp:SP,t:B('I\'m KERNEL. I\'m what you\'d call the <span class="k">operating system</span> of this place — I share out the memory and the one processor, herd the input and output, keep the files straight, and hand visitors an interface so they never have to see the machinery. This is the <span class="k">Babel Tower</span>: where every language in the machine gets translated so the parts can understand each other.',
@@ -905,12 +909,13 @@ function kernelDialog(a){ _api(a);
     {sp:SP,t:B('An OS is the <span class="k">middle-manager between hardware and everything else</span>. It hands out memory and processor time so programs don\'t fight; it deals with disks, keyboards, screens; it manages files and security; and it gives you an interface — a screen you can point at — instead of raw switches. Utility software (defraggers, backups, virus checkers, compression) are the small helper tools that live alongside it.',
                '操作系统是<span class="k">硬件和其余一切之间的中层管理者</span>。它发放内存和处理器时间, 好让程序不打架; 它对付磁盘、键盘、屏幕; 它管理文件和安全; 它还给你一个界面——一块你能指指点点的屏幕, 而不是一排裸开关。实用工具 (碎片整理、备份、病毒扫描、压缩) 是傍着它一起住的那些小帮手。'),next:2}
   ];
+  nodes.sig='intro'; return nodes;
 }
 
 /* --- 编译官 —— 沉默寡言, 一次说完, 说完才动 --- */
 function compilerDialog(a){ _api(a);
   var SP=B('The Compiler','编译官');
-  return [
+  var nodes=[
     {sp:SP,t:B('<span class="dim">(It does not look up until it has finished forming the entire sentence in its head. Then, all at once:)</span>',
                '<span class="dim">(它不抬头, 直到把整句话在脑子里完整成形。然后, 一口气:)</span>')},
     {sp:SP,t:B('I read the whole program before I say a single word. I find every error there is, and I report them together, at the end — never one at a time. If it is clean, I hand back <span class="k">object code</span>: a finished thing, ready to run, fast, as many times as you like. If it is not clean, I hand back nothing. <span class="k">All, or nothing.</span> That is not coldness. That is a guarantee.',
@@ -918,32 +923,36 @@ function compilerDialog(a){ _api(a);
     {sp:SP,t:B('The interpreter downstairs thinks I am slow to start. I think it is quick to give up halfway. We have not spoken in nineteen years. ...The prediction bench is behind me. Bring me a program. I will tell you everything wrong with it — once.',
                '楼下那位解释官嫌我起步慢。我嫌它半途弃得快。我们十九年没说过话了。……预测台在我身后。给我一段程序。它所有的毛病, 我一次告诉你。'),next:-1}
   ];
+  nodes.sig='idle'; return nodes;
 }
 
 /* --- 解释官 —— 话痨, 边说边做, 错了当场停 --- */
 function interpreterDialog(a){ _api(a);
   var SP=B('The Interpreter','解释官');
-  return [
+  var nodes=[
     {sp:SP,t:B('Oh hi hi hi! A visitor! Okay so I\'ll just start talking and we\'ll see how far we get, that\'s literally my whole method, I take things <span class="k">one line at a time</span> and I do each one <span class="k">right now</span>, no waiting, no reading ahead, so line one: hello! line two: welcome! line three—',
                '哦嗨嗨嗨! 有访客! 好那我就直接开说, 走一步看一步, 这基本就是我的全部方法, 我<span class="k">一次只处理一行</span>, 而且<span class="k">当场</span>就做, 不等、不预读, 所以第一行: 你好! 第二行: 欢迎! 第三行——')},
     {sp:SP,t:B('—wait, is that a syntax error in your face? You look confused. <span class="dim">See? THAT is what I do.</span> The instant I hit something wrong, I <span class="k">stop dead, right there</span>. Everything before it already happened — I can\'t take it back. And I never bother making object code, because I re-translate the whole thing fresh <span class="k">every single time you run it</span>. Slower over a million runs. But when you\'re still writing it and it breaks every ten seconds? I\'m the friend who tells you <span class="k">exactly where</span>, immediately.',
                '——等等, 你脸上是不是有个语法错误? 你看着一脸懵。<span class="dim">看见没? 我就是这样。</span>一撞上不对的地方, 我就<span class="k">当场、就地、立刻停死</span>。在那之前发生的一切都已经发生了——收不回来。我也从不费劲去做目标代码, 因为<span class="k">你每运行一次, 我就把整段重新翻一遍</span>。跑一百万次是慢些。可当你还在写、它每十秒崩一次的时候? 我就是那个<span class="k">立刻告诉你错在哪一行</span>的朋友。'),next:-1}
   ];
+  nodes.sig='idle'; return nodes;
 }
 
 /* --- 汇编官 —— 老兵, 只处理最底层的话; 发支线 sys_asm --- */
 function assemblerDialog(a){ _api(a);
   var SP=B('The Assembler','汇编官');
+  var nodes;
   if(getFlag('sys_asm_done')){
-    return [
+    nodes=[
       {sp:SP,t:B('LDM, ADD, STO, OUT. One line, one instruction. No frills, no cleverness, no arguments about "elegance." <span class="dim">You listened to an old soldier ramble. Not many do.</span> The machine and I understand each other. That has always been enough.',
                  'LDM, ADD, STO, OUT。一行, 一条指令。不加花边, 不耍聪明, 不争论什么"优雅"。<span class="dim">你听一个老兵唠叨完了。没几个人肯。</span>机器和我彼此听得懂。这一直就够了。')},
       {sp:SP,t:B('…If you want to see "one line, one instruction" grown a heartbeat, visit the Core Vault — eight cores, and every beat of theirs is exactly one instruction. Old comrades of mine. <span class="dim">Tell the punch-clock I still keep time.</span>',
                  '……想看看「一行一条」长出心跳的样子, 就去核心机房——八颗核心, 每一跳恰好是一条指令。都是我的老战友。<span class="dim">替我带句话给那台打卡钟: 我这边的表, 还准着。</span>')}
     ];
+    nodes.sig='done'; return nodes;
   }
   if(getFlag('sys_asm_met')){
-    return [
+    nodes=[
       {sp:SP,t:B('Back already? Then hear the rest. High-level languages — the compiler\'s and interpreter\'s trade — one line of theirs becomes <span class="k">many</span> machine instructions. Mine is different. <span class="k">Assembly is one-to-one:</span> each mnemonic I translate becomes exactly one machine instruction. LDM #65 → one instruction. No expansion, no magic.',
                  '这就回来了? 那把剩下的听完。高级语言——编译官和解释官的行当——他们的一行会变成<span class="k">很多条</span>机器指令。我不一样。<span class="k">汇编是一对一的:</span> 我翻译的每个助记符, 恰好变成一条机器指令。LDM #65 → 一条指令。不膨胀, 不变魔术。')},
       {sp:SP,t:B('That is why they keep me down at the bottom, closest to the hardware. Somebody has to speak the last language before there are no more words, only voltages. <span class="dim">Give me a line of assembly on the bench sometime. I will show you what one-to-one looks like.</span>',
@@ -952,8 +961,9 @@ function assemblerDialog(a){ _api(a);
           toast(B('◈ Side quest complete: The Old Soldier\'s Language.','◈ 支线完成: 老兵的语言。')); }
       }}
     ];
+    nodes.sig='met'; return nodes;
   }
-  return [
+  nodes=[
     {sp:SP,t:B('<span class="dim">(An old machine-daemon, edges worn smooth, sitting where the tower meets the hardware.)</span><br>You climbed all the way up here to talk to the <span class="k">assembler</span>? Most young processes want the fancy translators. Nobody wants the one who only speaks to the metal.',
                '<span class="dim">(一个老机器 daemon, 棱角都磨圆了, 坐在塔与硬件接壤的地方。)</span><br>你一路爬上来, 是想跟<span class="k">汇编官 (assembler)</span> 说话? 大多数年轻进程想找那些花哨的翻译器。没人想找只跟金属说话的这一个。'),choices:[
       {t:B('I want to hear the oldest language. Tell me.','我想听最老的那门语言。讲讲。'),next:1},
@@ -965,24 +975,28 @@ function assemblerDialog(a){ _api(a);
         toast(B('◇ Side quest: The Old Soldier\'s Language — hear the assembler out.','◇ 支线: 老兵的语言——听汇编官讲完。')); }
     }}
   ];
+  nodes.sig='intro'; return nodes;
 }
 
 /* --- IDE 学徒 —— 在拼一台 IDE, 发支线 sys_ide --- */
 function apprenticeDialog(a){ _api(a);
   var SP=B('IDE Apprentice','IDE 学徒');
+  var nodes;
   if(getFlag('sys_ide_done')){
-    return [
+    nodes=[
       {sp:SP,t:B('The debugger works! Breakpoints, single-step, a variable watch — all wired in. My IDE is finally more than a text box. <span class="dim">One workshop, all the tools. That was the whole dream.</span> Thank you.',
                  '调试器能用了! 断点、单步、变量监视——全接上了。我这台 IDE 总算不只是个文本框了。<span class="dim">一个工坊, 所有工具。这就是整个梦想。</span>谢谢你。')}
     ];
+    nodes.sig='done'; return nodes;
   }
   if(getFlag('sys_ide_met')){
-    return [
+    nodes=[
       {sp:SP,t:B('The workbench is right there. The test program should end at x=9 but comes out 15. Use the debugger I roughed in — <span class="k">step, watch, breakpoint</span> — and pin the bad line. That proves the debugger works, and my IDE gets its heartbeat.',
                  '工作台就在那边。测试程序本该以 x=9 收尾, 却跑出 15。用我搭的那个调试器毛坯——<span class="k">单步、监视、断点</span>——把坏的那行钉住。这就证明调试器能用, 我的 IDE 也就有了心跳。'),next:-1}
     ];
+    nodes.sig='met'; return nodes;
   }
-  return [
+  nodes=[
     {sp:SP,t:B('Hi! Don\'t mind the mess. I\'m building an <span class="k">IDE — Integrated Development Environment</span>. It\'s where a programmer keeps everything in one place: the editor, syntax highlighting, error messages, auto-complete, and the debugger. I\'ve got everything... except the debugger actually working.',
                '嗨! 别嫌乱。我在造一台 <span class="k">IDE——集成开发环境</span>。就是程序员把所有东西放在一处的地方: 编辑器、语法高亮、错误提示、自动补全, 还有调试器。别的我都有了……就差调试器真能用。'),choices:[
       {t:B('I\'ll help you finish the debugger.','我来帮你把调试器做完。'),next:1},
@@ -996,6 +1010,7 @@ function apprenticeDialog(a){ _api(a);
     {sp:SP,t:B('It lets you stop a program mid-run and look inside — set a <span class="k">breakpoint</span> to pause on a line, <span class="k">single-step</span> one line at a time, and <span class="k">watch</span> a variable\'s value change. Instead of guessing why your code is wrong, you catch it in the act.',
                '它让你把程序在半途叫停、往里看——下<span class="k">断点 (breakpoint)</span> 停在某一行, <span class="k">单步 (single-step)</span> 一行一行走, 再<span class="k">监视 (watch)</span> 一个变量的值怎么变。不用猜代码为什么错, 而是当场抓现行。'),next:0}
   ];
+  nodes.sig='intro'; return nodes;
 }
 
 /* ================================================================

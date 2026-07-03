@@ -415,8 +415,8 @@ var TRACE_HINTS=[
     '干跑是记账不是猜谜。一次只走一行: 读高亮的那行, 算出它产生的那一个值, 只填那个数。'),
   B('When a FOR loop starts a new pass, the counter itself changes first (i becomes 1, then 2, ...). An IF only assigns when its condition is true — if it is false, that pass produces no new value.',
     'FOR 每开始新一趟, 先变的是计数器本身 (i 变成 1, 再变 2, ...)。IF 只有条件为真时才赋值——条件为假, 那一趟不产生新值。'),
-  B('Trial I values in order: total=0, i=1, total=1, i=2, total=3, i=3, total=6, OUTPUT=6. Same method for II and III — just keep the running total in your head, one line at a time.',
-    '试炼一逐行的值: total=0, i=1, total=1, i=2, total=3, i=3, total=6, OUTPUT=6。试炼二、三同法——把当前累计值记在脑子里, 一行一行来。')
+  B('Worked example with DIFFERENT numbers — copy the METHOD, not these values. Program: p ← 5 / FOR i ← 1 TO 2 / p ← p + i / NEXT i / OUTPUT p. Trace it row by row: p=5, then i=1, then p=6, then i=2, then p=8, then OUTPUT=8. Notice each row changes exactly ONE value. Now walk YOUR trial the same way — read one line, write the single value it changes, move on.',
+    '例子(换了数字)——抄方法, 别抄这些值。程序: p ← 5 / FOR i ← 1 TO 2 / p ← p + i / NEXT i / OUTPUT p。逐行干跑: p=5, 然后 i=1, 然后 p=6, 然后 i=2, 然后 p=8, 然后 OUTPUT=8。注意每一行只改一个值。现在照同样的方法走你自己的试炼——读一行, 写下它改变的那一个值, 再往下。')
 ];
 var TR={ level:0 };
 function renderTrace(el,api){
@@ -562,8 +562,8 @@ var TD_HINTS=[
     '三类测试数据, 各来一份: 常态 NORMAL(典型有效值)、边界 BOUNDARY(恰好在允许范围的边缘)、异常 ABNORMAL(明显无效——类型不对或远超范围)。'),
   B('The rule is "age 11 to 18". The Boundary sentinel is the one people skip: give it 11 or 18 (the limits), or 10 or 19 (just outside). Normal wants 12–17. Abnormal wants something like 999, -5, or "hello".',
     '规则是"年龄 11 到 18"。边界卫兵是最常被跳过的那个: 给它 11 或 18(上下限), 或 10 或 19(刚越界)。常态要 12–17。异常要 999、-5 或 "hello" 这类。'),
-  B('One combination that opens the gate: 15 (normal), 18 (boundary), 999 (abnormal). Type each into the feeder and send it.',
-    '一组能开门的组合: 15(常态)、18(边界)、999(异常)。逐个填进投喂口发出去即可。')
+  B('Worked example with a DIFFERENT rule — copy the thinking, not the values. Suppose the rule were "password length 6 to 10". Then NORMAL = a length of 8 (comfortably valid); BOUNDARY = a length of 6 or 10 (the limits), or 5 or 11 (just outside); ABNORMAL = a length of 0, or 500, or a non-number. One of each opens that gate. Your gate uses a different rule — pick one value of each kind for IT and feed them in.',
+    '例子(换了规则)——抄思路, 别抄数值。假设规则是"密码长度 6 到 10"。那么常态 NORMAL = 长度 8(舒舒服服有效); 边界 BOUNDARY = 长度 6 或 10(上下限), 或 5 或 11(刚越界); 异常 ABNORMAL = 长度 0、或 500、或非数字。三类各一份就能开那道门。你这道门用的是另一条规则——照它各挑一个值喂进去。')
 ];
 function renderTestData(el,api){
   el.innerHTML='';
@@ -660,8 +660,8 @@ var BUG_HINTS=[
     '按品种猎, 别乱标。几乎每段坏循环里都藏着三种经典 bug: 用在赋值前的变量、多数一步的循环、永远停不下来的循环。'),
   B('Check each variable: is it given a value before it is first read? Check each loop bound against the array size. Check each loop: does anything inside it eventually make the condition false?',
     '逐个变量查: 首次读取之前有没有被赋值? 逐个循环上界对照数组大小。逐个循环查: 循环体里有没有什么最终会让条件变假?'),
-  B('The three bug lines are: 3 (total read before it was ever set), 4 (FOR ... TO 6 but the array is [1:5]), and 7 (WHILE total > 0, but total never changes inside). Mark exactly those three.',
-    '三行 bug 是: 第 3 行(total 在被赋值前就被读)、第 4 行(FOR ... TO 6 但数组是 [1:5])、第 7 行(WHILE total > 0, 但 total 循环内从不改变)。恰好标这三行。')
+  B('Worked example on a DIFFERENT program — find the three species here, then hunt yours the same way. (a) "sum ← sum + n" where sum was never set → uninitialised, that line is guilty. (b) "FOR k ← 0 TO 5" over an array declared [1:5] → off-by-one, k=0 is out of bounds. (c) "WHILE flag = 0" with nothing inside ever changing flag → infinite loop. Three species, three guilty lines. Now scan YOUR program for the same three shapes.',
+    '例子(换个程序)——先在这里找出三种物种, 再照同样的方法猎你的。(a) "sum ← sum + n" 而 sum 从没被赋值 → 未初始化, 这行有罪。(b) "FOR k ← 0 TO 5" 遍历声明为 [1:5] 的数组 → 差一, k=0 越界。(c) "WHILE flag = 0" 而循环里从没有东西改变 flag → 死循环。三种物种, 三行有罪。现在在你自己的程序里扫这同样三种形状。')
 ];
 var BH={ picked:{} };
 function renderBugHunt(el,api){
@@ -767,8 +767,8 @@ var LC_HINTS=[
     '经典 waterfall(瀑布)生命周期单向流动, 每个阶段完成后才进下一个: 分析 → 设计 → 编码 → 测试 → 维护。'),
   B('Maintenance types: CORRECTIVE fixes a fault found after release; ADAPTIVE changes the software to keep working in a new environment (new law/OS/hardware); PERFECTIVE improves something that already works (speed, features, usability).',
     '维护类型: 纠错性 CORRECTIVE 修复上线后发现的缺陷; 适应性 ADAPTIVE 让软件在新环境(新法规/系统/硬件)下继续工作; 完善性 PERFECTIVE 改进本就能用的东西(速度、功能、易用性)。'),
-  B('Order: Analysis, Design, Coding, Testing, Maintenance. Matches: cart total wrong → corrective; tax law changed → adaptive; faster search + dark mode → perfective.',
-    '顺序: 分析、设计、编码、测试、维护。匹配: 购物车合计错→纠错性; 税法变了→适应性; 搜索更快+夜间模式→完善性。')
+  B('The waterfall order is a fixed definition — memorise it as one chain (it is in the first hint): Analysis, Design, Coding, Testing, Maintenance. For the tickets, copy this thinking on DIFFERENT examples: "app crashes on upload" → a fault exists → corrective; "a new phone screen size breaks the layout" → the environment changed → adaptive; "users want a keyboard shortcut added" → improving what already works → perfective. Ask your three tickets the same question: fault, environment change, or improvement?',
+    '瀑布顺序是固定定义——把它当成一条链记住(第一条提示里就有): 分析、设计、编码、测试、维护。工单部分, 拿不同的例子练同样的思路: "应用一上传就崩溃" → 存在缺陷 → 纠错性; "新手机屏幕尺寸把布局撑坏了" → 环境变了 → 适应性; "用户想加一个键盘快捷键" → 改进本就能用的东西 → 完善性。拿同样的问题问你的三张工单: 是缺陷、是环境变化, 还是改进?')
 ];
 var LC={ seq:[] };
 function renderLifecycle(el,api){
@@ -885,8 +885,8 @@ var META_HINTS=[
     '你在三卫兵那儿见过一模一样的 bug。规则是"及格线 = 50"。问那个边界问题: 一个刚好考到 50 分的考生, 会怎样?'),
   B('Look at the comparison operator on the IF line. It says score > passMark. But 50 is a passing score — 50 is not greater than 50, so this grader quietly FAILS everyone who scores exactly the pass mark.',
     '看 IF 那行的比较运算符: score > passMark。可 50 分是及格的——50 并不大于 50, 于是这台评分机悄悄判了每个刚好考到及格线的人不及格。'),
-  B('The bug is on the IF line: it should be score >= passMark, not score > passMark. Mark that line.',
-    'bug 在 IF 那行: 应该是 score >= passMark, 不是 score > passMark。标那一行。')
+  B('Worked example on a DIFFERENT rule — then run the same trace here. Say a ride needs "height >= 120cm", but the code reads "IF height > 120 THEN allow". Trace a child who is exactly 120: 120 is not greater than 120, so they are wrongly turned away — the guilty line is the comparison, and the fix swaps > for >=. Now run that same exact-boundary trace on the grader in front of you and click the one line it betrays.',
+    '例子(换条规则)——再把同样的跟踪用到这里。假设一个游乐项目要求"身高 >= 120cm", 而代码写的是"IF height > 120 THEN 放行"。跟踪一个身高恰好 120 的小孩: 120 并不大于 120, 于是他被错误地挡在门外——有罪的是那行比较, 修法是把 > 换成 >=。现在拿这同一个"恰好卡边界"的跟踪, 去跑你面前这台评分机, 点出它出卖的那一行。')
 ];
 function renderMeta(el,api){
   el.innerHTML='';
@@ -947,7 +947,7 @@ function renderMeta(el,api){
 function invigilatorDialog(api){
   var SP=B('The Invigilator','老监考官');
   if(FLAG(api,'dev_main_done')){
-    return [
+    var nodes=[
       {sp:SP,t:B('You passed. All three trials, hand-walked, no shortcuts. Twenty years I sat here, and you are the first candidate to finish since the machine shipped.',
                  '你过了。三场试炼, 全靠手走, 没抄近路。我在这儿坐了二十年, 你是机器出厂后第一个考完的人。')},
       {sp:SP,t:B('...There is one more thing. The grader on the back wall — the machine that judged everyone — I never dared test it myself. If your Boundary Seal is warm, go open that panel. <span class="dim">I have a bad feeling about who scored exactly fifty.</span>',
@@ -955,20 +955,22 @@ function invigilatorDialog(api){
       {sp:SP,t:B('<span class="dim">(He squares the blank answer sheets — a motion he has clearly made ten thousand times.)</span> "First to finish", I said. Not "first to sit". Twenty years ago there was one other candidate. Walked two trials and a half, set the pen down in the middle of a line, and left through a door that is not on my floor plan. The bell never rang.<br><span class="dim">I still keep the paper. Unmarked. Marking it would mean the exam is over.</span>',
                  '<span class="dim">(他把空白答卷理了理齐——这个动作他显然做过一万遍。)</span>我说的是「第一个考完」, 不是「第一个来考」。二十年前, 还有一个考生。三场走了两场半, 一支笔搁在半行字上, 从一扇我平面图上没有的门出去了。铃一直没响。<br><span class="dim">那份卷子我还留着。没批。批了, 就等于这场考试结束了。</span>')}
     ];
+    nodes.sig='all_done'; return nodes;
   }
   if(FLAG(api,'dev_intro')){
     var steps=[];
     steps.push(FLAG(api,'dev_trace_done')?'✓ ':'· ');
     steps.push(FLAG(api,'dev_test_done')?'✓ ':'· ');
     steps.push(FLAG(api,'dev_bug_done')?'✓ ':'· ');
-    return [
+    var nodes=[
       {sp:SP,t:B('Still running the trials? Good. <span class="k">Trace Table Shrine</span> to the west, <span class="k">Test-Data Sentinels</span> in the middle, <span class="k">Bug Hunt</span> to the east — that is also the order of difficulty. No shame in the hints; the machine kept them warm for you.',
                  '还在跑试炼? 好。西边<span class="k">干跑神殿</span>, 中间<span class="k">测试数据三卫兵</span>, 东边<span class="k">Bug 狩猎</span>——那也是难度顺序。用提示不丢人; 机器一直替你把它们焐着。')},
       {sp:SP,t:B('Progress: '+steps[0]+'Trace  '+steps[1]+'Test data  '+steps[2]+'Bug hunt. Clear all three and I will show you something no candidate was ever meant to see.',
                  '进度: '+steps[0]+'干跑  '+steps[1]+'测试数据  '+steps[2]+'Bug 狩猎。三场都清了, 我给你看点没有哪个考生本该看到的东西。')}
     ];
+    nodes.sig='in_progress'; return nodes;
   }
-  return [
+  var nodes=[
     {sp:SP,t:B('Oh. A live one. ...Sit down, sit down. You are the first thing with a pulse to walk into this exam hall in — <span class="dim">let me check the log —</span> twenty years.',
                '哦。一个活的。……坐, 坐。你是二十年来——<span class="dim">让我查查日志——</span>第一个有脉搏走进这间考场的东西。')},
     {sp:SP,t:B('This is the <span class="k">Debug Proving Grounds</span>. Before this machine ever shipped, every line of its code was tested right here. It passed. It shipped. It has been running for twenty years. And the trials? The trials never got the memo. They still run every night at 3am, grading an empty room.',
@@ -988,20 +990,22 @@ function invigilatorDialog(api){
                '能。而且它会很舒服地骗你。运行程序, 你只看到<em>一条</em>路——你的输入恰好走的那条。徒手干跑, 你被迫把<span class="k">每一个</span>变量、<span class="k">每一条</span>分支都记在自己脑子里。这就是"在我机器上是好的"和"我知道它为什么好"的区别。试炼教的是后者。'),
      next:2}
   ];
+  nodes.sig='intro'; return nodes;
 }
 
 /* --- 幽灵程序员 The Ghost Coder: 干跑神殿 --- */
 function ghostCoderDialog(api){
   var SP=B('The Ghost Coder','幽灵程序员');
   if(FLAG(api,'dev_trace_done')){
-    return [
+    var nodes=[
       {sp:SP,t:B('You walked all three, all the way through. Do you feel it? The program stopped being text and started being a <span class="k">place you can walk</span>. That is what a trace table is really for.',
                  '三张你都走到了头。感觉到了吗? 程序不再是文字, 而变成了一个<span class="k">你能走进去的地方</span>。这才是 trace table 真正的用处。')},
       {sp:B('...','…'),t:B('The footprints on the floor are yours now, not mine. <span class="dim">Twenty years I walked these halls alone. Thank you for walking them with me.</span>',
                           '地上的脚印现在是你的了, 不是我的。<span class="dim">二十年我一个人走这些走廊。谢谢你陪我走了一遍。</span>')}
     ];
+    nodes.sig='done'; return nodes;
   }
-  return [
+  var nodes=[
     {sp:B('???','???'),t:B('<span class="dim">A faint figure paces the same six steps, over and over, muttering values under its breath.</span><br>...total is zero. i is one. total is one. i is two...',
                             '<span class="dim">一个淡淡的身影, 来回踱着同样的六步, 低声念着一串值。</span><br>……total 是零。i 是一。total 是一。i 是二……')},
     {sp:SP,t:B('You can see me? Then you can help me finish. I was a programmer here. I dry-ran one loop so many times, checking it before every exam, that I <span class="dim">became</span> the trace. Now I cannot stop walking it.',
@@ -1016,6 +1020,7 @@ function ghostCoderDialog(api){
                '那就照机器的做法: 绝不往前猜, 绝不跳步。一行, 一个改动, 一行表。trace table 除了上面已经填的行之外没有记忆——你也不该有。只看你正站着的那一行。'),
      next:2}
   ];
+  nodes.sig='idle'; return nodes;
 }
 
 /* --- 三卫兵 (共用一个工厂) --- */
@@ -1024,17 +1029,20 @@ function sentinelDialog(cat){
     var s=TD_SENTINELS.filter(function(x){return x.cat===cat;})[0];
     var SP=s.nameB;
     if(FLAG(api,'dev_test_done')){
-      return [{sp:SP,t:B('Fed and satisfied. The gate is open. <span class="dim">Remember me next time you write an IF — I am the value sitting right on the line you almost forgot to check.</span>',
+      var doneNodes=[{sp:SP,t:B('Fed and satisfied. The gate is open. <span class="dim">Remember me next time you write an IF — I am the value sitting right on the line you almost forgot to check.</span>',
                          '喂过了, 满意了。门开着。<span class="dim">下次你写 IF 的时候记着我——我就是那个坐在边界线上、你差点忘了检查的值。</span>')}];
+      doneNodes.sig='fed'; return doneNodes;
     }
     if(cat==='boundary'){
-      return [
+      var bNodes=[
         {sp:SP,t:s.descB},
         {sp:SP,t:B('The other two get fed all the time. Me? Candidates hand me a nice safe 15 and wonder why I stay dark. Give me the <span class="k">edge</span>: 11, 18 — or 10, 19 just over the line. That is where every real bug is hiding.',
                    '另外两个总被喂饱。我呢? 考生递给我一个安全的 15, 还纳闷我为什么不亮。给我<span class="k">边界</span>: 11、18——或者刚越线的 10、19。真正的 bug 全藏在那儿。')}
       ];
+      bNodes.sig='idle_boundary'; return bNodes;
     }
-    return [{sp:SP,t:s.descB}];
+    var nodes=[{sp:SP,t:s.descB}];
+    nodes.sig='idle_'+cat; return nodes;
   };
 }
 

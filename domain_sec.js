@@ -542,8 +542,8 @@ function renderPhish(el,api){
       '永远先看<b>发件域名</b>——不是显示名, 是 @ 后面那部分。"立即行动"式的紧迫感和"天上掉馅饼"是第二大信号。'),
     B('Compare letters carefully: <b>paypa1.com</b> (digit 1), <b>micros0ft-security.com</b> (digit 0) are look-alike domains, not the real thing. Ordinary emails almost never demand your password or card number.',
       '仔细比对字母: <b>paypa1.com</b>(数字 1)、<b>micros0ft-security.com</b>(数字 0) 都是形似域名, 不是真的。正常邮件几乎不会索要密码或卡号。'),
-    B('The answer key, mail by mail: m1 phish(typo domain) · m2 legit · m3 phish(too-good+fake urgency) · m4 legit · m5 phish(typo domain) · m6 legit · m7 phish(double extension+fake domain) · m8 legit · m9 phish(gift-card scam) · m10 legit.',
-      '逐封答案: m1 钓鱼(仿冒域名) · m2 真 · m3 钓鱼(天上掉馅饼+假紧迫) · m4 真 · m5 钓鱼(仿冒域名) · m6 真 · m7 钓鱼(双扩展名+假域名) · m8 真 · m9 钓鱼(礼品卡骗局) · m10 真。')
+    B('Worked example — two mails NOT on this belt. ① "billing@arnazon-support.net: your account closes in 30 minutes, verify your card now" → run the checks: sender domain misspells the brand ("rn" faking an "m") and isn\'t the brand\'s own domain; panic countdown; demands card details → <b>shoot it down</b>. ② "receipt@spotify.com: your payment went through, no action needed" → correct domain, no urgency, asks for nothing → <b>let it through</b>. Now run those same three checks on every mail that flies past: exact sender domain? manufactured urgency or too-good-to-be-true? demanding credentials/clicks?',
+      '例子(换了邮件)——两封不在这条传送带上的信。① "billing@arnazon-support.net: 您的账户 30 分钟后关闭, 请立即验证卡号" → 过一遍检查: 发件域名把品牌拼错了("rn" 冒充 "m"), 也不是品牌自己的域名; 倒计时恐慌; 索要卡号 → <b>击落</b>。② "receipt@spotify.com: 您的付款已成功, 无需任何操作" → 域名正确、不催、什么都不要 → <b>放行</b>。现在对飞过的每一封信跑同样三问: 发件域名一字不差吗? 有没有人造紧迫感/天上掉馅饼? 有没有索要凭证或点击?')
   ]);
 }
 
@@ -755,8 +755,8 @@ function renderFirewall(el,api){
       '规则从上到下走, <b>第一条匹配的生效</b>。没人写规则管的包会掉进<b>默认 DENY</b>——所以你只需要为信任的流量写 ALLOW, 不需要为每个攻击者都写 DENY。'),
     B('You need exactly four kinds of "yes": web (TCP 80 & 443) from outside, admin SSH (TCP 22) from inside only, and DNS (UDP 53) from outside. Everything else on the list is an attack and should simply have no matching rule.',
       '你只需要四种"放行": 来自 outside 的网页流量 (TCP 80 与 443)、只来自 inside 的管理员 SSH (TCP 22)、来自 outside 的 DNS (UDP 53)。列表里剩下的全是攻击, 不写规则、让它们摔进默认拒绝就好。'),
-    B('The 4-rule answer: ALLOW TCP 80 from outside · ALLOW TCP 443 from outside · ALLOW TCP 22 from inside · ALLOW UDP 53 from outside. Notice there is no rule at all for SSH-from-outside — the default policy handles it.',
-      '4 条参考答案: ALLOW TCP 80 来自 outside · ALLOW TCP 443 来自 outside · ALLOW TCP 22 来自 inside · ALLOW UDP 53 来自 outside。注意"来自 outside 的 SSH"根本没有专门规则——默认策略自动接管。')
+    B('Worked example (a different fortress, different services) — suppose its legit traffic were only: mail (TCP 25) from outside, and a database (TCP 3306) from inside only. Full ruleset: ALLOW TCP 25 from outside · ALLOW TCP 3306 from inside — and that\'s it. A Telnet probe from outside matches neither line and falls into default DENY; so does a 3306 attempt from OUTSIDE, because the ALLOW named "inside" and nothing else vouches for it. Now do the same for YOUR gate: go down the packet queue, list each legit flow as (protocol, port, which side), write exactly one ALLOW per flow — and write nothing for the attacks.',
+      '例子(换了一座要塞、换了服务)——设它的合法流量只有: 来自 outside 的邮件 (TCP 25), 和只来自 inside 的数据库 (TCP 3306)。完整规则表: ALLOW TCP 25 来自 outside · ALLOW TCP 3306 来自 inside——就这两条。来自 outside 的 Telnet 探测两条都不匹配, 掉进默认 DENY; 来自 OUTSIDE 的 3306 尝试也一样, 因为那条 ALLOW 点名了 inside, 再没有别的规则替它担保。现在对你的城门做同样的事: 顺着包队列, 把每种合法流量写成 (协议, 端口, 来自哪侧), 一种流量恰好一条 ALLOW——攻击一条都不写。')
   ]);
 }
 
@@ -938,8 +938,8 @@ function renderZoo(el,api){
       '五个特征: <b>病毒 virus</b> 需要宿主文件 · <b>蠕虫 worm</b> 无需宿主自我复制 · <b>木马 trojan</b> 伪装成想要的东西 · <b>间谍软件 spyware</b> 悄悄记录活动 · <b>勒索软件 ransomware</b> 锁文件/系统换赎金。'),
     B('Containment mostly follows the type: virus/trojan/spyware → <b>run anti-malware and remove it</b>. Worm → <b>disconnect from the network first</b>, it spreads while you dawdle. Ransomware → <b>restore from a clean backup</b>, paying the ransom is never the syllabus answer.',
       '隔离手段基本跟着类型走: 病毒/木马/间谍软件 → <b>跑反恶意软件清除</b>。蠕虫 → <b>先断网</b>, 你犹豫的每一秒它都在扩散。勒索软件 → <b>用干净备份恢复</b>, 交赎金永远不是考纲答案。'),
-    B('Answer key: worm→disconnect · trojan→antivirus · ransomware→restore · spyware→antivirus · virus→antivirus. Match the symptom text to the definition, then pick the action.',
-      '参考答案: 蠕虫→断网 · 木马→杀毒 · 勒索软件→备份恢复 · 间谍软件→杀毒 · 病毒→杀毒。先把症状描述对上定义, 再选隔离方式。')
+    B('Worked example (a case NOT on tonight\'s list) — eyewitness report: "for weeks it\'s been quietly mailing out screenshots of the front desk, and nobody noticed a thing." Step ①: underline the behaviour words — <i>quietly</i>, <i>recording/sending out</i>, <i>unnoticed</i> → match them against the five signatures in Hint 1 → that behaviour belongs to spyware. Step ②: the cure follows the species (Hint 2\'s table) → it doesn\'t self-spread, so scan & disinfect. Run those exact two steps on each escapee: underline the behaviour verbs in ITS report first, name the species, then read off the containment.',
+      '例子(不在今晚名单上的案子)——目击报告:「它连着好几周悄悄往外寄前台的截屏, 谁都没察觉。」第①步: 把行为词划出来——<i>悄悄</i>、<i>记录/外发</i>、<i>没人察觉</i> → 对照提示 1 里的五个特征 → 这种行为属于间谍软件。第②步: 隔离手段跟着品种走(提示 2 的表) → 它不会自我扩散, 所以杀毒清除。对每只逃犯跑同样两步: 先在它的报告里划出行为动词, 认出品种, 再按表读出隔离方式。')
   ]);
 }
 
@@ -992,6 +992,7 @@ function watchdogDialog(api){
         '[WATCHDOG] INFO 通讯结束 —— <span class="dim">(它重新坐回原位, 目光已经回到大路上)</span>'),next:-1}
     ];
     nodes.onEnd=function(){SET(api,'sec_met_watchdog');STEP(api,'sec_s1');};
+    nodes.sig='intro';
     return nodes;
   }
 
@@ -1002,6 +1003,7 @@ function watchdogDialog(api){
         'I trust the list. I still hear everything that hits the gate. I just… don\'t have to be the one holding my breath about it anymore.',
         '[WATCHDOG] INFO 规则表=生效中 疲劳度=0.0 —— <span class="dim">(它的眼睛第一次完全闭上了——却依然莫名其妙地坐得笔直)</span><br>'+
         '我信那张规则表。城门上发生的一切我照样听得见。只是……不用再是那个屏着呼吸的人了。'),next:-1}];
+    nodes.sig='all_done';
     return nodes;
   }
 
@@ -1036,24 +1038,29 @@ function watchdogDialog(api){
       SET(api,'sec_side_done');STEP(api,'sec_s3');
       GIVE(api,'wd_ready',B('(used) Perfect Rule, read aloud','(已用) 念出口的完美规则'));
     };
+    nodes.sig='ruleset_ready';
     return nodes;
   }
 
   if(FLAG(api,'sec_trojan_advice')){
-    return [fixed,{sp:SP,t:B(
+    nodes=[fixed,{sp:SP,t:B(
       '[WATCHDOG] INFO waiting_on=gate_control_room — <span class="dim">(it keeps glancing toward the control room, then catching itself.)</span><br>'+
       'The trojan\'s advice keeps rattling in my head: "a good rule is just a promise you keep even when you\'re not watching." '+
       '<span class="k">Go finish the gate ruleset.</span> I want to see if that\'s true.',
       '[WATCHDOG] INFO 等待中=城门控制室 —— <span class="dim">(它时不时瞟一眼控制室的方向, 又强迫自己收回视线)</span><br>'+
       '木马的话一直在我脑子里转: 「一条好规则, 就是你不盯着也照样兑现的承诺。」'+
       '<span class="k">去把城门规则写完。</span>我想看看这话是不是真的。'),next:-1}];
+    nodes.sig='wait_gate';
+    return nodes;
   }
 
-  return [fixed,{sp:SP,t:B(
+  nodes=[fixed,{sp:SP,t:B(
     '[WATCHDOG] INFO waiting_on=trojan_advice — <span class="dim">(it looks pointedly toward the cages downstairs.)</span><br>'+
     'Go on. Ask the old trojan. I\'ll keep barking at packets in the meantime — it\'s what I do.',
     '[WATCHDOG] INFO 等待中=木马的建议 —— <span class="dim">(它意有所指地看向楼下笼子的方向)</span><br>'+
     '去吧。问问那只老木马。我在这儿继续对着包吠叫——反正这就是我的工作。'),next:-1}];
+  nodes.sig='wait_trojan';
+  return nodes;
 }
 
 /* 改邪归正的老 trojan —— 笼中"内部顾问", 台词是忏悔录, 好笑 + 教学。 */
@@ -1093,6 +1100,7 @@ function trojanDialog(api){
         '<span class="k">我以前专门利用的就是这种执念。</span>写得好的默认拒绝策略不需要人守着。替我告诉它这句话。'),next:-1}
     ];
     nodes.onEnd=function(){SET(api,'sec_met_trojan');};
+    nodes.sig='intro';
     return nodes;
   }
 
@@ -1113,12 +1121,18 @@ function trojanDialog(api){
         '一个职业骗子说出这话, 好歹也算个背书吧。</span>'),next:-1}
     ];
     nodes.onEnd=function(){SET(api,'sec_trojan_advice');STEP(api,'sec_s2');};
+    nodes.sig='advice';
     return nodes;
   }
 
-  var i=(FLAG(api,'sec_trojan_visits')||0);SET(api,'sec_trojan_visits',i+1);
+  /* 闲聊态: 忏悔录轮换只在真正对话结束时推进 (dialog() 会被气泡签名轮询调用,
+     不能在这里就地 SET, 否则轮询会把计数刷飞); 首节点固定 + sig 固定 → bark 轮换不点亮气泡 */
+  var i=(FLAG(api,'sec_trojan_visits')||0);
   var c=TROJAN_CONFESSIONS[i%TROJAN_CONFESSIONS.length];
-  return [fixed,{sp:SP,t:c,next:-1}];
+  nodes=[fixed,{sp:SP,t:c,next:-1}];
+  nodes.onEnd=function(){SET(api,'sec_trojan_visits',i+1);};
+  nodes.sig='idle';
+  return nodes;
 }
 
 /* ================================================================

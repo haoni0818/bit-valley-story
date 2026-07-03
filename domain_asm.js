@@ -319,7 +319,8 @@ var LEVELS=[
       'IN 会把队列里的下一个数放进 ACC —— 累加器 (accumulator), CPU 唯一的一双手。'),
     B('OUT sends whatever ACC is holding. So: take, give, stop.',
       'OUT 会把 ACC 手里的东西送出去。所以: 拿, 给, 停。'),
-    B('Three lines: IN / OUT / END.','三行: IN / OUT / END。') ],
+    B('Nothing to compute — just route the number straight through. Ask yourself three things, in order: which instruction pulls the next input into ACC? which one ships whatever ACC is holding back out? which single instruction halts the program? Answer those three, one per line, and that IS the program.',
+      '这里不用算什么——只是把数字原样顺一遍。按顺序问自己三件事: 哪条指令把下一个输入拉进 ACC? 哪条把 ACC 手里的东西送出去? 哪条指令让程序停下? 三个答案, 一行一条, 就是整段程序。') ],
   done:B('[+0:00:31] First beat in twenty years. Logged. …I logged it twice. Force of habit says one of them is a mistake; I am keeping both.',
          '[+0:00:31] 二十年来的第一声搏动。已记录。……我记了两遍。职业习惯说其中一遍是错误; 我两遍都留着。') },
 
@@ -350,7 +351,8 @@ var LEVELS=[
       'SUB 永远是拿 ACC 里<b>现在</b>的数去减别的东西——只能算"ACC 减 ……", 没法反过来。STO 把 ACC 存进内存箱子留着; LDD 把箱子里的东西取回 ACC, 覆盖掉原来的内容。'),
     B('You want 100 − x, but x arrives first and sits in ACC — a direct SUB would give you x − 100, backwards. Fix: park x in memory (STO 20), then start over: put 100 into ACC with LDM #100, and subtract the parked x (SUB 20).',
       '你要的是 100 − x, 可 x 先到、占着 ACC——直接 SUB 得到的是 x − 100, 反了。解法: 把 x 先寄存到内存 (STO 20), 然后重新来: 用 LDM #100 把 100 放进 ACC, 再减去寄存的 x (SUB 20)。'),
-    B('IN / STO 20 / LDM #100 / SUB 20 / OUT / END.','IN / STO 20 / LDM #100 / SUB 20 / OUT / END。') ],
+    B('Worked example, different numbers — suppose the target were 50 − x instead. Read x (it lands in ACC), park it: STO 20. Load the constant: LDM #50. Subtract the parked x: SUB 20 (ACC = 50 − x). Then OUT / END. Whole run: IN / STO 20 / LDM #50 / SUB 20 / OUT / END. Your puzzle has the exact same shape — just swap 50 for the constant your target needs.',
+      '例子 (换了数字) —— 假设目标是 50 − x。读入 x (落进 ACC), 先寄存: STO 20。装常数: LDM #50。减去寄存的 x: SUB 20 (ACC = 50 − x)。然后 OUT / END。整段: IN / STO 20 / LDM #50 / SUB 20 / OUT / END。你这题结构一模一样——把 50 换成你目标需要的那个常数就行。') ],
   done:B('[+0:01:07] The columns sum to one hundred again. Somewhere a nineteen-year-old bookkeeping error just quietly forgave itself.',
          '[+0:01:07] 账目重新凑成了一百。某个错了十九年的账, 刚刚悄悄原谅了自己。') },
 
@@ -381,8 +383,8 @@ var LEVELS=[
       '这块 CPU 完全没有乘法指令——一条都没有。以后遇到的每一个"&times;2"、"&times;3"、"&times;10", 都得靠 ADD 一次次相加搭出来。而 2x 慢慢念, 就是: x…… 加 x。'),
     B('Park x in memory with STO, then ADD that same address. ACC meets its own reflection.',
       '先用 STO 把 x 寄存进内存, 然后 ADD 同一个地址。ACC 遇见了镜子里的自己。'),
-    B('IN / STO 20 / ADD 20 / OUT / END — the pump doubles by adding itself.',
-      'IN / STO 20 / ADD 20 / OUT / END —— 泵靠加上自己来翻倍。') ],
+    B('Worked example, different numbers — say you needed 3x (triple) instead. 3x = x + x + x: park x with STO 20, then ADD 20 (ACC = 2x), then ADD 20 again (ACC = 3x). Whole run: IN / STO 20 / ADD 20 / ADD 20 / OUT / END. Doubling is the very same idea with one fewer ADD — park x once, then add it back the right number of times.',
+      '例子 (换了数字) —— 假设要的是 3x (三倍)。3x = x + x + x: 用 STO 20 寄存 x, 再 ADD 20 (ACC = 2x), 再 ADD 20 一次 (ACC = 3x)。整段: IN / STO 20 / ADD 20 / ADD 20 / OUT / END。翻倍是完全一样的思路, 只是少加一次——把 x 寄存一次, 再按需要的次数加回来。') ],
   done:B('[+0:00:58] In: one spark. Out: two. The oldest trick in the vault — there was never a multiplier in here, you know. Only patience, folded once.',
          '[+0:00:58] 进一粒火花, 出两粒。全机房最古老的戏法 —— 你知道吗, 这里从来就没有过乘法器。只有对折了一次的耐心。') },
 
@@ -419,8 +421,8 @@ var LEVELS=[
       '看一个从 0 数到 3 的循环, 一拍一拍走一遍: ACC 起始为 0。LOOP: INC ACC (0&rarr;1), OUT (打印 1), CMP 20 (1 等于 3 吗? 不 &rarr; FLAG=NE), JPN LOOP (NE, 跳回去)。第二圈: INC (1&rarr;2), OUT (2), CMP (2=3? 不) &rarr; 再跳回去。第三圈: INC (2&rarr;3), OUT (3), CMP (3=3? 是 &rarr; FLAG=EQ), JPN LOOP —— JPN 只在 NE 时才跳, 现在是 EQ, 所以不跳, 顺势往下走。这一次"不跳", 就是循环结束的方式。'),
     B('Park N in memory first. Then count in ACC: INC ACC, OUT, CMP against N — if Not Equal yet, JPN back to the label.',
       '先把 N 寄存进内存。然后用 ACC 数数: INC ACC、OUT、CMP 那个 N —— 还不相等 (NE) 就 JPN 跳回标签。'),
-    B('IN / STO 20 / LDM #0 / LOOP: INC ACC / OUT / CMP 20 / JPN LOOP / END.',
-      'IN / STO 20 / LDM #0 / LOOP: INC ACC / OUT / CMP 20 / JPN LOOP / END。') ],
+    B('Assemble it from four decisions, not a copy. (1) Before the loop: park N somewhere you can compare against, and set ACC to a start value such that the first increment makes it 1. (2) Loop body order: increment ACC, output it, then compare ACC with N. (3) Exit test: after the compare, which conditional jump keeps you looping while ACC is NOT yet equal to N? (4) Once it falls through: END. Write those four parts in that order.',
+      '把它拆成四个决定来搭, 而不是照抄。(1) 循环前: 把 N 寄存到能拿来比较的地方; 给 ACC 设个起始值, 好让第一次自增正好把它变成 1。(2) 循环体顺序: ACC 自增、输出、再拿 ACC 和 N 比较。(3) 退出判断: 比较之后, 用哪个条件跳转能在"ACC 还没等于 N"时继续循环? (4) 一旦顺势走出: END。按这个顺序把四段写出来。') ],
   done:B('[+0:02:44] 1, 2, 3… I know this cadence. It is the cadence of my own punch cards. All these years I thought I was keeping time. I was keeping its seat warm.',
          '[+0:02:44] 1、2、3…… 这个节拍我认得。是我打卡的节拍。这么多年我以为自己在守时 —— 原来我是在替它占座。') },
 
@@ -451,8 +453,8 @@ var LEVELS=[
       '两支不一样高的蜡烛。同速烧 —— 不, 更简单: 从 a 开始一步一步往下数。你先撞见谁: b, 还是 0?'),
     B('If counting down from a you meet b → a ≥ b, so a is the verdict. If you hit 0 first → b never got met because b > a. Each lap: CMP 21 / JPE …, CMP #0 / JPE …, DEC ACC, JMP back.',
       '从 a 往下数, 若先撞见 b → a ≥ b, 判 a 赢。若先撞见 0 → 说明 b 比 a 高, 没等到。每圈: CMP 21 / JPE …、CMP #0 / JPE …、DEC ACC、JMP 回去。'),
-    B('LDD 20 / LOOP: CMP 21 / JPE AWIN / CMP #0 / JPE BWIN / DEC ACC / JMP LOOP / AWIN: LDD 20 / OUT / END / BWIN: LDD 21 / OUT / END.',
-      'LDD 20 / LOOP: CMP 21 / JPE AWIN / CMP #0 / JPE BWIN / DEC ACC / JMP LOOP / AWIN: LDD 20 / OUT / END / BWIN: LDD 21 / OUT / END。') ],
+    B('Build it from the idea, don\'t transcribe it. Load a into ACC, then each lap ask TWO equality questions before stepping down. (1) Does ACC equal b (memory[21])? If yes, you reached b before hitting zero, so a ≥ b — branch to an "a wins" exit that outputs a. (2) Does ACC equal 0? If yes, you fell to zero first, so b was the larger — branch to a "b wins" exit that outputs b. If neither, DEC ACC and jump back to the top. Two exits, one OUT and one END each.',
+      '照着思路搭, 别抄。把 a 装进 ACC, 然后每一圈往下走之前问两个"相等"问题。(1) ACC 等于 b (内存[21]) 吗? 等于就说明没到 0 就撞见了 b, 即 a ≥ b——分支到"a 赢"的出口, 输出 a。(2) ACC 等于 0 吗? 等于就说明先掉到了 0, 即 b 更大——分支到"b 赢"的出口, 输出 b。两个都不是, 就 DEC ACC 跳回开头。两个出口, 各一个 OUT、各一个 END。') ],
   done:B('[+0:04:12] Verdict delivered. Nineteen years late, but the court of this machine has no statute of limitations — only a clerk who never went home.',
          '[+0:04:12] 判决送达。迟了十九年 —— 好在这台机器的法庭没有诉讼时效, 只有一个从没下过班的书记员。') },
 
@@ -484,8 +486,8 @@ var LEVELS=[
       'IX 是第二个寄存器, 充当"滑动偏移量": LDX a 读的是 内存[a + IX]。IX=0 时, LDX 10 读的是 内存[10]。执行一次 INC IX (IX 变成 1) 之后, 同一条 LDX 10 读到的就变成了 内存[11]——地址跟着 IX 一起滑动。'),
     B('Here: IX=0 makes LDX 10 read bucket 10; after INC IX the same line reads bucket 11 — five INC IX steps sweep all five buckets with one instruction. Keep the running total in memory (say cell 16): LDX 10 / ADD 16 / STO 16 / INC IX, round and round. To stop: bucket 15 is 0 — CMP #0 right after LDX tells you the arm has swept past the end.',
       '放到这题里: IX=0 时 LDX 10 读的是 10 号斗; INC IX 后同一行读的是 11 号斗——五次 INC IX 就用一条指令扫完全部五个斗。把累计和放在内存里 (比如 16 号格): LDX 10 / ADD 16 / STO 16 / INC IX, 一圈一圈。怎么停: 15 号斗是 0 —— LDX 之后 CMP #0, 等于 0 就说明臂扫出了队尾。'),
-    B('LDM #0 / STO 16 / LOOP: LDX 10 / CMP #0 / JPE DONE / ADD 16 / STO 16 / INC IX / JMP LOOP / DONE: LDD 16 / OUT / END.',
-      'LDM #0 / STO 16 / LOOP: LDX 10 / CMP #0 / JPE DONE / ADD 16 / STO 16 / INC IX / JMP LOOP / DONE: LDD 16 / OUT / END。') ],
+    B('Assemble it from parts. (1) Set up a running total: put 0 into a scratch cell (say 16) before the loop, and IX starts at 0. (2) Loop body: LDX 10 reads the bucket IX currently points at; test it against 0 first — the empty sentinel bucket 15 means "swept past the end", so jump to the finish on equal. (3) Otherwise fold this bucket into the total: ADD the total cell, STO it back, INC IX to slide to the next bucket, and jump back to the top. (4) At the finish: load the total cell, OUT, END.',
+      '按零件来搭。(1) 准备一个累计和: 循环前把 0 放进一个草稿格 (比如 16), IX 从 0 开始。(2) 循环体: LDX 10 读出 IX 当前指向的斗; 先拿它和 0 比——空的哨兵斗 15 表示"扫出了队尾", 相等就跳到收尾。(3) 否则把这个斗折进总和: ADD 总和格、STO 存回、INC IX 滑到下一个斗, 再跳回开头。(4) 收尾: 装载总和格、OUT、END。') ],
   done:B('[+0:03:33] The arm turns. Sixteen years of stale water, poured and tallied in four milliseconds. The harvest was 25 buckets of nothing in particular. It still deserved to be counted.',
          '[+0:03:33] 臂转起来了。十六年的陈水, 四毫秒内倒空、点清。收成是 25 斗的无关紧要 —— 但它仍然值得被数一遍。') },
 
@@ -518,8 +520,8 @@ var LEVELS=[
       'LDD a 只是把 a 号箱子里的<b>数字</b>原样抄过来。LDI a 则是把 a 号箱子里的内容当成一个<b>地址</b>, 顺着它走一趟: 先读 a 号箱拿到一个地址, 再去读那个地址, 才拿到真正的值。例: 内存[20]=25、内存[25]=6 &rarr; LDD 20 拿到的是 25 (指针本身), 而 LDI 20 拿到的才是 6 (指针指向的值)。'),
     B('Here: memory[20]/[21] hold the ADDRESSES of a and b, not a and b themselves. First move: LDI 20 / STO 16 and LDI 21 / STO 17, to copy the real a and b into your own scratch cells. Then it is Level 3 grown up: keep a product in a scratch cell; each lap, check b\'s copy against #0 (JPE out), DEC it, and ADD a into the product.',
       '放到这题里: 内存[20]、[21] 装的是 a、b 的<b>地址</b>, 不是 a、b 本身。第一步: LDI 20 / STO 16, 以及 LDI 21 / STO 17, 把真正的 a、b 抄进自己的草稿格。然后就是第 3 关的成年版: 草稿格里放乘积; 每圈先 CMP #0 看 b 的副本用完没 (JPE 跳出), 再 DEC 它, 给乘积 ADD 一个 a。'),
-    B('LDI 20/STO 16/LDI 21/STO 17/ LOOP: LDD 17/CMP #0/JPE DONE/DEC ACC/STO 17/LDD 18/ADD 16/STO 18/JMP LOOP/ DONE: LDD 18/OUT/END.',
-      'LDI 20/STO 16/LDI 21/STO 17/ LOOP: LDD 17/CMP #0/JPE DONE/DEC ACC/STO 17/LDD 18/ADD 16/STO 18/JMP LOOP/ DONE: LDD 18/OUT/END。') ],
+    B('Two stages, assembled not copied. Stage 1 — follow the pointers: LDI 20 fetches the real a (STO it into a scratch cell), LDI 21 fetches the real b (STO it into another). Stage 2 — this is Level 3\'s doubling grown into full multiplication: keep a product cell starting at 0; each lap, compare the b-copy with 0 (branch out on equal), DEC the b-copy, and ADD the a-copy into the product. When b runs out, load the product, OUT, END.',
+      '两个阶段, 搭出来而非照抄。阶段一——顺着指针走: LDI 20 取出真正的 a (STO 进一个草稿格), LDI 21 取出真正的 b (STO 进另一个)。阶段二——这就是第 3 关的"翻倍"长成了完整乘法: 准备一个乘积格从 0 起; 每一圈先拿 b 的副本和 0 比 (相等就分支跳出), 再 DEC b 副本, 给乘积 ADD 一个 a 副本。b 用完了, 装载乘积、OUT、END。') ],
   done:B('[+0:05:50] 6 × 7 = 42. I finally read the slips. …That was all? Two decades of dusting, for a six and a seven. Yes, says the mill. Every large thing in this machine is a small thing, added patiently.',
          '[+0:05:50] 6 × 7 = 42。我终于看了那两张小条。……就这? 掸了二十年灰, 掸的是一个 6 和一个 7。是的, 工坊说。这台机器里所有的大事, 都是小事耐心相加。') },
 
@@ -551,8 +553,8 @@ var LEVELS=[
       '这里没有新东西——把你会的东西叠起来用: 用 LDX + INC IX 扫数组 (第 6 关), 靠"往下数, 看先撞见谁"找出两个数里更大的那个 (第 5 关), 循环到每个元素都查过、在 0 哨兵处停下 (第 4 关)。'),
     B('Champion\'s ladder: take pulse #1 as the reigning max (a scratch cell). Sweep the rest with LDX + INC IX. Each challenger fights Level-5 style: count DOWN from the challenger; meet the champion\'s value first → challenger wins (replace); hit 0 first → champion holds. Save the challenger in a scratch cell before counting it down! Cell 15 is 0 — your sentinel, and later your delivery slot.',
       '擂台赛: 先让 1 号脉搏当擂主 (存进草稿格)。然后用 LDX + INC IX 扫过其余选手。每个挑战者用第 5 关的方式打擂: 从挑战者往下数——先撞见擂主的值 → 挑战者赢 (换擂主); 先撞见 0 → 擂主卫冕。往下数之前, 记得先把挑战者存进草稿格! 15 号格是 0 —— 先当哨兵, 最后当颁奖台。'),
-    B('LDX 10/STO 16/INC IX/ LOOP: LDX 10/CMP #0/JPE DONE/STO 17/ RACE: CMP 16/JPE NEW/CMP #0/JPE NEXT/DEC ACC/JMP RACE/ NEW: LDD 17/STO 16/ NEXT: INC IX/JMP LOOP/ DONE: LDD 16/STO 15/OUT/END.',
-      'LDX 10/STO 16/INC IX/ LOOP: LDX 10/CMP #0/JPE DONE/STO 17/ RACE: CMP 16/JPE NEW/CMP #0/JPE NEXT/DEC ACC/JMP RACE/ NEW: LDD 17/STO 16/ NEXT: INC IX/JMP LOOP/ DONE: LDD 16/STO 15/OUT/END。') ],
+    B('Layer three things you have already built; assemble, don\'t transcribe. (1) Seed the champion: take bucket 10 as the current maximum into a scratch cell, then INC IX to face the next challenger. (2) Outer sweep (Level 6): LDX 10 reads the challenger IX points at; the zero sentinel (bucket 15) means the line-up is finished — branch to delivery on equal. (3) Inner duel (Level 5): save the challenger, then count it DOWN — meet the champion\'s value first → challenger wins and becomes the new champion; hit 0 first → champion holds. (4) After the last challenger: copy the champion into cell 15, OUT, END.',
+      '把三样你已经搭过的东西叠起来; 是拼装, 不是照抄。(1) 立擂主: 把 10 号斗当作当前最大值存进草稿格, 再 INC IX 迎接下一位挑战者。(2) 外层扫描 (第 6 关): LDX 10 读出 IX 指向的挑战者; 0 哨兵 (15 号斗) 表示队伍走完了——相等就分支去颁奖。(3) 内层对决 (第 5 关): 先存好挑战者, 再把它往下数——先撞见擂主的值 → 挑战者赢, 换新擂主; 先撞见 0 → 擂主卫冕。(4) 最后一位挑战者之后: 把擂主抄进 15 号格、OUT、END。') ],
   done:B('','') /* 第 8 关收尾走 api.scene 大演出, 见 renderLevel */ },
 ];
 
@@ -1137,7 +1139,8 @@ function renderPatch(el,api){
       '工单说: 归档 (STO 到某格)、宣告 (OUT)、休息 (END)。三个动词, 三行。'),
     B('When your three lines begin, ACC already holds the sum — the first two lines did the adding.',
       '你的三行开始时, ACC 里已经是总和了 —— 前两行做完了加法。'),
-    B('STO 30 / OUT / END.','STO 30 / OUT / END。')
+    B('Worked example, different slot — if the order had said "file at cell 25", the ending would read STO 25 / OUT / END: store the sum into the named cell, announce it once, halt. Yours is the same three verbs — just aim STO at whichever cell YOUR job order names.',
+      '例子 (换了格子) —— 假如工单说的是"归档到 25 号格", 结尾就是 STO 25 / OUT / END: 把总和存进指定的格子, 宣告一次, 停机。你的也是这三个动词——把 STO 对准你工单指定的那个格子就行。')
   ]);
 }
 
@@ -1204,6 +1207,7 @@ function tickDialog(api){
         '<span class="dim">(它的盖章臂抽动了一下)</span> 总得有人为「没有时间」守时。这个人一直是我。'),next:-1}
     ];
     nodes.onEnd=function(){SET(api,'asm_met_tick');STEP(api,'asm_m1');};
+    nodes.sig='intro';
     return nodes;
   }
 
@@ -1227,11 +1231,12 @@ function tickDialog(api){
         'You know, I clocked that patch IN, twenty years ago. Tonight I finally got to clock it <span class="k">out</span>.',
         '[现在+2秒] 记录里还有一条: P-1997, 已送达。迟到 7289 天, exit status 0。'+
         '你知道吗, 二十年前是我给那个补丁打的上班卡。今晚, 我终于给它打上了<span class="k">下班卡</span>。')});
+    done.sig=FLAG(api,'asm_patch_done')?'heart_patch':'heart';
     return done;
   }
 
   if(sc>=4){
-    return [fixed,
+    var nodes=[fixed,
       {sp:SP,t:B(
         '[+00:04:0'+sc+'] '+sc+' of 8. The vault is half-warm. I have started making <span class="k">clerical errors</span> — '+
         'stamped one card twice, stamped one upside down. I checked my own gears. Nothing is wrong with my gears. '+
@@ -1244,9 +1249,11 @@ function tickDialog(api){
         'When you get there… <span class="k">work slowly.</span> Not for safety. I just want to hear the first beat arrive on a clean second.',
         '越深处的核心讲越老的方言: 工坊货架上的指针, 还有最里面的 —— 心脏起搏器。'+
         '走到那儿的时候……<span class="k">修慢一点。</span>不是为了安全。我只是想让第一声心跳, 落在一个干净的整秒上。'),next:-1}];
+    nodes.sig='sc'+sc;
+    return nodes;
   }
   if(sc>=1){
-    return [fixed,
+    var nodes=[fixed,
       {sp:SP,t:B(
         '[+00:0'+sc+':11] '+sc+' core'+(sc>1?'s':'')+' back online. Noted, filed, and — off the record — '+
         '<span class="k">heard</span>. The vault sounds different already. Less like a warehouse. More like a ward at night.',
@@ -1259,8 +1266,10 @@ function tickDialog(api){
         '趁你在, 再补一条。东南角, 电缆盘旁边: 一个二十年前派出的修复补丁, <span class="k">P-1997</span>, '+
         '一直没送达。它到现在还想把活干完。'+
         '<span class="dim">我帮不了它 —— 记录员权限。但你手里那支笔, 是有写权限的。</span>'),next:-1}];
+    nodes.sig='sc'+sc;
+    return nodes;
   }
-  return [fixed,
+  var nodes=[fixed,
     {sp:SP,t:B(
       '[+00:00:41] The terminal is waiting, centre of the hall. CORE-01 first — the echo core. '+
       'Its whole art was: <span class="k">what comes in, goes out.</span> Twenty years ago every apprentice learned that in sixty seconds. '+
@@ -1268,6 +1277,8 @@ function tickDialog(api){
       '[+00:00:41] 终端在大厅正中等着。先修 CORE-01 —— 回声核心。'+
       '它一辈子的手艺就一句: <span class="k">进什么, 出什么。</span>二十年前, 每个学徒六十秒就能学会。'+
       '<span class="dim">给你六十秒。我在计时 —— 职业习惯。</span>'),next:-1}];
+  nodes.sig='ready';
+  return nodes;
 }
 
 /* 未送达的补丁 P-1997 —— 20 年前没跑完的修复程序 */

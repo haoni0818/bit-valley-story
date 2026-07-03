@@ -72,11 +72,28 @@
   #manual{left:50%;top:50%;transform:translate(-50%,-50%);width:min(700px,94vw);height:min(540px,90vh);
     display:none;flex-direction:column;z-index:26}
   #manual.on{display:flex}
-  #manual.side{left:auto;right:10px;top:10px;bottom:10px;transform:none;width:min(470px,40vw);height:auto}
-  /* 手册侧挂时, 谜题类面板自动让位到左侧 */
-  body.man-side #modP{left:8px;top:50%;transform:translate(0,-50%);width:min(640px,56vw)}
-  body.man-side #asmP{left:8px;top:50%;transform:translate(0,-50%);width:min(840px,57vw)}
-  body.man-side #binP{left:8px;top:50%;transform:translate(0,-50%)}
+  /* §L 宽屏适配: 手册侧挂时不再贴右缘, 与谜题面板作为「居中相邻组合体」——接缝落在屏幕中线,
+     谜题面板在中线左、手册在中线右, 二者之间 12px 缝; 超宽屏(3840)两侧自动留白而不再各贴一边。 */
+  #manual.side{left:calc(50% + 6px);right:auto;top:50%;bottom:auto;transform:translateY(-50%);
+    width:min(440px,30vw);height:min(560px,88vh)}
+  body.man-side #modP{left:auto;right:calc(50% + 6px);top:50%;transform:translateY(-50%);width:min(680px,44vw);max-width:none}
+  body.man-side #asmP{left:auto;right:calc(50% + 6px);top:50%;transform:translateY(-50%);width:min(820px,46vw)}
+  body.man-side #binP{left:auto;right:calc(50% + 6px);top:50%;transform:translateY(-50%)}
+  /* §L 高DPI/大屏: 2K/4K 下手册与谜题面板正文字号提一档(画布渲染不受影响) */
+  @media (min-width:2200px){
+    #mbody{font-size:13.5px}
+    #mbody pre,#mbody .warnbox,#mbody table,#mbody td,#mbody th{font-size:13px}
+    #modBody{font-size:13.5px}
+    #asmSrc{font-size:14px}
+    #manual{width:min(760px,60vw);height:min(600px,86vh)}
+    #modP{width:min(780px,60vw)}
+  }
+  @media (min-width:3200px){
+    #mbody{font-size:15px}
+    #mbody pre,#mbody .warnbox,#mbody table,#mbody td,#mbody th{font-size:14px}
+    #modBody{font-size:15px}
+    #asmSrc{font-size:15px}
+  }
   #mhead{padding:10px 16px;border-bottom:1px solid #2f6f2f;color:#9fee9f;letter-spacing:2px;display:flex;justify-content:space-between;align-items:center}
   #mbody{flex:1;overflow-y:auto;padding:14px 22px}
   #mbody pre{background:rgba(10,25,10,.5);border:1px solid #1f3f1f;padding:8px 12px;color:#9fee9f;
@@ -2496,8 +2513,8 @@ function modNpcTalk(n){
   let nodes=null;
   try{nodes=(typeof n.dialog==='function')?n.dialog(api):n.dialog;}catch(e){window.onerror('dialog '+n.id+': '+e,'',0);return;}
   if(!nodes||!nodes.length)return;
-  try{ // 记「已听过」签名: 直接用本次拿到的首节点, 不再重调 dialog() (兜底; 对话结束后 endDialog 会按最新 flag 重记)
-    state.flags['heard_m_'+state.interior+'_'+n.id]=String(TT(nodes[0].t||'')).replace(/<[^>]*>/g,'').slice(0,60);
+  try{ // 记「已听过」签名: 用 sigOfNodes(优先 nodes.sig) 与 modNpcSig 口径一致, 避免 bark 轮换误判(#barksig)
+    state.flags['heard_m_'+state.interior+'_'+n.id]=sigOfNodes(nodes);
     delete npcSigCache['m_'+state.interior+'_'+n.id];
   }catch(e){}
   startDialog(nodes,nodes.onEnd||null);
@@ -3112,10 +3129,18 @@ function modNpcSig(n){
   let v='0';
   try{
     const nodes=(typeof n.dialog==='function')?n.dialog(api):n.dialog;
-    if(nodes&&nodes.length)v=String(TT(nodes[0].t||'')).replace(/<[^>]*>/g,'').slice(0,60);
+    v=sigOfNodes(nodes);
   }catch(e){}
   npcSigCache[key]={t:now,v};
   return v;
+}
+/* 气泡签名(#barksig): 优先用 dialog 返回的稳定状态键 nodes.sig(如 'idle'/'q_done'), 无 sig 才退回首节点文本。
+   根因修复: 闲聊 bark 轮换会改首节点文本→误判「有新话」→NAND-9 任务全清后气泡又亮。有 sig 的对话轮换 bark 也不动签名。 */
+function sigOfNodes(nodes){
+  if(!nodes)return '0';
+  if(nodes.sig!=null)return 'sig:'+String(nodes.sig);
+  if(nodes.length)return String(TT(nodes[0].t||'')).replace(/<[^>]*>/g,'').slice(0,60);
+  return '0';
 }
 function npcHasNew(n,isMod){
   const key=isMod?('heard_m_'+state.interior+'_'+n.id):('heard_'+n.id);
@@ -3567,7 +3592,9 @@ function renderMap(){
              :{0:'#0c140c',1:'#14351a',2:'#3a4046',3:'#0b2230',4:'#4a3f22',5:'#1c1810',6:'#802020'};
   const zones=mapZones();
   const doneZones=zones.filter(z=>z.done);
-  const litColor=state.world==='a2'?'rgba(230,170,255,.20)':'rgba(160,255,170,.18)';
+  /* 三态点亮(#9): 全清区改高饱和暖色叠加(AS 青金 / A2 灯火金)——与「已探索暗色」一眼两个世界 */
+  const litColor=state.world==='a2'?'rgba(255,190,90,.34)':'rgba(120,255,205,.32)';
+  const litGlow =state.world==='a2'?'#ffbe5a':'#63ffcd';
   /* 点亮扫光动画 (区域全清演出): 该区域从暗到亮的呼吸扫光 */
   const flashOf=id=>{
     if(!mapFlash||mapFlash.id!==id)return 0;
@@ -3588,6 +3615,16 @@ function renderMap(){
       }
     }
   }
+  /* 全清区边缘发光描边: 让「点亮」与「已探索」在轮廓上也一眼区分 */
+  g.save();
+  for(const z of doneZones){
+    if(!seen(z.tx,z.ty))continue;
+    const cx=(z.tx+0.5)*sc, cy=(z.ty+0.5)*sc, rr=z.r*sc;
+    g.strokeStyle=litGlow;g.shadowColor=litGlow;g.shadowBlur=Math.max(6,sc*1.5);
+    g.lineWidth=Math.max(1.5,sc*0.4);g.globalAlpha=0.9;
+    g.beginPath();g.arc(cx,cy,rr,0,7);g.stroke();
+  }
+  g.restore();
   // POI 点: 只画已探索区域内的 (迷雾不漏点); 未交互=亮点, 已交互=暗点
   const dot=(tx,ty,on,col)=>{if(!seen(tx,ty))return;
     g.fillStyle=on?col:'rgba(120,140,120,.45)';g.fillRect(tx*sc-1,ty*sc-1,3,3);};
@@ -3613,8 +3650,23 @@ function renderMap(){
       const label=r.ch?String(r.ch):((TT(r.name)[0]||'?').toUpperCase());
       mark(r.tx,r.ty,label+(dn?'✓':''),col);
     });
-    if(seen(TOWER.tx,TOWER.ty))mark(TOWER.tx,TOWER.ty,'▲','#7CFC00');
-    if(seen(PORTALS.as.tx,PORTALS.as.ty))mark(PORTALS.as.tx,PORTALS.as.ty,'◎',state.a2Unlocked?'#c86bff':'#444');
+    if(seen(TOWER.tx,TOWER.ty)){                            // ▲ 重启之塔: 放大 + 已点亮加光晕
+      const towerLit=state.flags.reboot_ready||REALMS_AS.filter(r=>r.mod&&chapterDone(r.mod)).length>=6;
+      g.save();g.textAlign='center';
+      g.font='bold '+Math.max(16,sc*2.8)+"px 'Cascadia Code','Microsoft YaHei','PingFang SC',monospace";
+      if(towerLit){g.shadowColor='#7CFC00';g.shadowBlur=Math.max(8,sc*2);}
+      g.fillStyle=towerLit?'#aaff6a':'#7CFC00';
+      g.fillText('▲',TOWER.tx*sc+sc/2,TOWER.ty*sc+sc*1.3);
+      g.restore();
+    }
+    if(seen(PORTALS.as.tx,PORTALS.as.ty)){                  // ◎ 传送门: 放大, 解锁后发光
+      g.save();g.textAlign='center';
+      g.font='bold '+Math.max(15,sc*2.6)+"px 'Cascadia Code','Microsoft YaHei','PingFang SC',monospace";
+      if(state.a2Unlocked){g.shadowColor='#c86bff';g.shadowBlur=Math.max(7,sc*1.8);}
+      g.fillStyle=state.a2Unlocked?'#d79bff':'#444';
+      g.fillText('◎',PORTALS.as.tx*sc+sc/2,PORTALS.as.ty*sc+sc*1.3);
+      g.restore();
+    }
   }else{
     REALMS_A2.forEach(r=>{
       if(!seen(r.tx,r.ty))return;
@@ -3627,8 +3679,8 @@ function renderMap(){
   if(!state.interior){g.fillStyle='#fff';g.fillRect(px*sc-2,py*sc-2,4,4);g.strokeStyle='#7CFC00';g.strokeRect(px*sc-4,py*sc-4,8,8);}
   g.textAlign='left';
   $('mapTitle').textContent=TT(state.world==='a2'?L('SECTOR MAP · A2 DEEP LAYER','区域地图 · A2 深层'):L('SECTOR MAP · AS OVERWORLD','区域地图 · AS 表层'));
-  $('mapLegend').innerHTML=TT(L('fog = unexplored · dark = explored · <b>bright wash + ✓ = district cleared</b><br>numbers 1-6 = chapters (recommended order) · gold dots = untouched POI · ▲ Reboot Tower · ◎ portal · white square = you',
-    '黑雾 = 未探索 · 暗色 = 已探索 · <b>亮色区 + ✓ = 领域全清点亮</b><br>数字 1-6 = 章节(推荐顺序) · 金点 = 未交互 POI · ▲ 重启之塔 · ◎ 传送门 · 白方块 = 你'));
+  $('mapLegend').innerHTML=TT(L('<b>fog</b> = unexplored · <b>dark</b> = explored · <b style="color:#63ffcd">glowing wash + ring + ✓</b> = district cleared<br>numbers 1-6 = chapters (recommended order) · gold dots = untouched POI · <b>▲</b> Reboot Tower (glows when all 6 done) · <b>◎</b> portal · white square = you',
+    '<b>黑雾</b> = 未探索 · <b>暗色</b> = 已探索 · <b style="color:#63ffcd">发光亮区 + 描边环 + ✓</b> = 领域全清点亮<br>数字 1-6 = 章节(推荐顺序) · 金点 = 未交互 POI · <b>▲</b> 重启之塔(六章全清则发光) · <b>◎</b> 传送门 · 白方块 = 你'));
 }
 
 /* ---------------- 19. 渲染 ---------------- */
@@ -3822,6 +3874,15 @@ function isWallTile(x,y){
   const tt=curTiles[y][x];
   return state.interior?(tt===1):(tt===2);
 }
+/* 前墙(下边界)判定(#10): interior 里, 上方一格是可走地面(或门口开口)的墙 = 面朝玩家的前墙,
+   它的高墙立面会向上一格盖住门口和站在门前的玩家 → 改画矮墙(parapet)。后墙(上边界, 上方越界)、
+   侧墙(上方仍是墙)保持高墙。引擎层统一, 不逐馆改数据; 墙体碰撞不变(仍挡路), 门是地面开口照常通行。 */
+function isFrontWallTile(x,y){
+  if(!state.interior||!isWallTile(x,y))return false;
+  if(y-1<0||isWallTile(x,y-1))return false;   // 需上方是可走地面/门口(面朝玩家的前墙); 顶边/侧墙(上方是墙)保持高墙
+  for(let yy=y+1;yy<MH;yy++){if(!isWallTile(x,yy))return false;} // 下方若还有室内地面 → 是室内障碍块, 保持高墙(只矮化真正的下边界排)
+  return true;                                 // 一路到底边都是墙 → 下边界前墙 → 矮墙(不遮门口与玩家)
+}
 function toggleHud(){
   state.hudHidden=!state.hudHidden;save();
   toast(state.hudHidden?L('HUD hidden (H to restore)','HUD 已隐藏 (H 恢复)'):L('HUD restored','HUD 已恢复'));
@@ -3853,8 +3914,8 @@ function draw(t){
         const sx=x*CT-cam.x,sy=y*CT-cam.y;
         const nb={up:isWallTile(x,y-1),down:isWallTile(x,y+1),left:isWallTile(x-1,y),right:isWallTile(x+1,y)};
         const kind=state.interior?'wall':'rock';
-        const wx=x,wy=y;
-        push('wall',(y+1)*CT-cam.y,()=>V2.drawWallTall(ctx,sx,sy,CT,nb,WORLD,t,kind,wx,wy));
+        const wx=x,wy=y,par=isFrontWallTile(x,y);
+        push('wall',(y+1)*CT-cam.y,()=>V2.drawWallTall(ctx,sx,sy,CT,nb,WORLD,t,kind,wx,wy,par));
       }
     }
   }else{
@@ -3865,8 +3926,8 @@ function draw(t){
         ART.drawTile(ctx,'ground',sx,sy,CT,t,WORLD,x,y);      // 垫地防缝
         const nb={up:isWallTile(x,y-1),down:isWallTile(x,y+1),left:isWallTile(x-1,y),right:isWallTile(x+1,y)};
         const kind=state.interior?'wall':'rock';               // 断崖=自然语言, interior=建筑语言
-        const wx=x,wy=y;
-        push('wall',(y+1)*CT-cam.y,()=>V2.drawWallTall(ctx,sx,sy,CT,nb,WORLD,t,kind,wx,wy));
+        const wx=x,wy=y,par=isFrontWallTile(x,y);
+        push('wall',(y+1)*CT-cam.y,()=>V2.drawWallTall(ctx,sx,sy,CT,nb,WORLD,t,kind,wx,wy,par));
       }else{
         drawTileAny(tt,sx,sy,t,x,y);
       }
@@ -4475,6 +4536,36 @@ window.ENG={
     else if(s==='dex'){collectDex(DEX_BUILTIN[0].syl);openManual(DEX_PAGE);}
     else if(s==='bin')openBin();
     else if(s==='asm'){state.tut=4;openAsm();}
+    else if(s==='asmman'){state.tut=4;openAsm();openManual(2);}   // §L 宽屏: 汇编面板 + 侧挂手册 居中相邻组合
+    else if(s==='maplit'){    // #9 地图三态目检: 雾 + 已探索暗色 + 全清点亮(发光描边) + ▲塔/◎门图标
+      state.tut=4;state.gate=true;state.asm=true;openGateTiles();openDoor2Tiles();
+      state.flags.revealDone=true;state.flags.mapUnlock=true;state.flags.refIntro=true;
+      for(let cy2=0;cy2<8;cy2++)for(let cx2=0;cx2<16;cx2++)EXP.as.add(cx2+','+cy2);   // 只探索北半 → 南半留雾(三态齐)
+      EXP.as.add(((TOWER.tx/6)|0)+','+((TOWER.ty/6)|0));EXP.as.add(((PORTALS.as.tx/6)|0)+','+((PORTALS.as.ty/6)|0));
+      try{if(MODS.data)(MODS.data.quests||[]).filter(q=>q.line==='main').forEach(q=>{state.mq[q.id]={done:true,steps:{}};});}catch(e){}
+      state.a2Unlocked=true;openMap();
+    }
+    else if(s==='sluice'){    // 水闸实时状态行(判定+后果+颜色语义) 目检
+      state.tut=4;state.quests.push({id:'m3',text:'m3',type:'main',done:true});
+      if(MODS.logic){const p=MODS.logic.puzzles.find(q=>q.id==='lg_sluice');
+        if(p){state.flags['primer_seen_lg_sluice']=true;enterInterior('logic');openPuzzle(p);}}
+    }
+    else if(s==='song'){      // 走调的歌(波形判定) 目检
+      state.tut=4;state.quests.push({id:'m3',text:'m3',type:'main',done:true});
+      if(MODS.med){const p=MODS.med.puzzles.find(q=>q.id==='med_p_song');
+        if(p){state.flags['primer_seen_med_p_song']=true;enterInterior('med');openPuzzle(p);}}
+    }
+    else if(s==='intdoor'){                                       // #10 室内门口: 玩家站门前, 验证前墙矮墙不遮挡
+      state.tut=4;state.quests.push({id:'m3',text:'m3',type:'main',done:true});
+      const id2=MODS.logic?'logic':(MODLIST[0]&&MODLIST[0].id);
+      if(id2){enterInterior(id2);
+        // 把玩家挪到室内底边门口前一格(下边界前墙处), 面朝下
+        try{const it=IMODS[id2].interior;let dr=-1,dc=-1;
+          for(let yy=it.h-1;yy>=0&&dr<0;yy--)for(let xx=0;xx<it.w;xx++){if(it.tiles[yy][xx]===0&&(yy+1>=it.h||it.tiles[yy+1][xx]===1)){dr=yy;dc=xx;break;}}
+          if(dr>0){player.x=(dc+0.5)*CT;player.y=(dr+0.5)*CT;player.dir='down';}
+        }catch(e){}
+      }
+    }
     else if(s==='as'){
       state.tut=4;state.gate=true;state.asm=true;openGateTiles();openDoor2Tiles();
       state.flags.revealDone=true;state.flags.mapUnlock=true;state.flags.refIntro=true;
@@ -5285,6 +5376,106 @@ function __probeOverlay(title,rows){
     store={blob:saveBlob(),ts:(state.ts||0)+3600000,ver:state.v};   // 云端“1 小时后”更新
     cloudPull();                                                     // → 弹双向确认(停此供截图)
   }catch(e){try{window.onerror(String(e),'',0);}catch(_){}}
+})();
+
+/* ---- 气泡签名探针: index.html#barksig → 闲聊 bark 轮换 N 次 ❕ 不亮; 剧情推进(sig 变) ❕ 亮 ----
+   复现「NAND-9 任务全清、聊完过一会 ❕ 又亮」: 根因=首节点文本做签名, bark 轮换→文本变→误判有新话。
+   修复=优先用 nodes.sig 稳定状态键(sigOfNodes)。 */
+(function(){
+  if(!/(^|#|&)barksig\b/.test(location.hash||''))return;
+  const rows=[];const chk=(n,c,x)=>rows.push([n,!!c,x||'']);
+  const errs=[];window.addEventListener('error',ev=>errs.push(String(ev.message||ev)));
+  try{
+    if(hasSave())wipeSave();newGame();if(dlg)endDialog();sceneActive=false;state.tut=4;
+    const withSig=(txts,s)=>Object.assign(txts.map(t=>({t})),{sig:s});
+    chk('sigOfNodes: 有 sig → 与首节点文本无关',
+        sigOfNodes(withSig(['bark A'],'idle'))===sigOfNodes(withSig(['totally different bark!'],'idle')));
+    chk('sigOfNodes: 无 sig → 退回首节点文本(旧口径)', sigOfNodes([{t:'X'}])!==sigOfNodes([{t:'Y'}]));
+    state.interior='data';
+    const BARKS=['闲聊一句','换个说法二','再来一句三','第四种寒暄'];let barkI=0,phase='idle';
+    const K='m_data___probe_bark',HK='heard_m_data___probe_bark';
+    const npc={id:'__probe_bark',dialog:()=>Object.assign(BARKS.map((b,i)=>({t:i===0?BARKS[barkI%BARKS.length]:b})),{sig:phase})};
+    npcMarkHeard(npc,true);
+    let lit=false;
+    for(let i=0;i<8;i++){barkI++;delete npcSigCache[K];if(npcHasNew(npc,true))lit=true;}
+    chk('有 sig: bark 轮换 8 次 → ❕ 始终不亮', lit===false, 'lit='+lit);
+    phase='q_done';delete npcSigCache[K];
+    chk('剧情推进(sig idle→q_done) → ❕ 亮(有新话)', npcHasNew(npc,true)===true);
+    npcMarkHeard(npc,true);delete npcSigCache[K];
+    chk('听完后 ❕ 再次熄灭', npcHasNew(npc,true)===false);
+    const npc2={id:'__probe_nosig',dialog:()=>BARKS.map((b,i)=>({t:i===0?BARKS[barkI%BARKS.length]:b}))};
+    npcMarkHeard(npc2,true);barkI++;delete npcSigCache['m_data___probe_nosig'];
+    chk('反证: 无 sig 的 bark 轮换会误亮 → 模块须补 nodes.sig', npcHasNew(npc2,true)===true);
+    chk('全程无 JS 错误', errs.length===0, errs.join(' | '));
+    rows.push(['ALL',rows.every(r=>r[1]),'']);
+  }catch(e){rows.push(['EXCEPTION',false,String(e&&e.stack||e)]);}
+  __probeOverlay('BARKSIG',rows);
+})();
+
+/* ---- 地图三态探针: index.html#maptri → 全清区像素明显区别于「已探索暗色」+ 塔发光逻辑 ---- */
+(function(){
+  if(!/(^|#|&)maptri\b/.test(location.hash||''))return;
+  const rows=[];const chk=(n,c,x)=>rows.push([n,!!c,x||'']);
+  const errs=[];window.addEventListener('error',ev=>errs.push(String(ev.message||ev)));
+  try{
+    if(hasSave())wipeSave();newGame();if(dlg)endDialog();sceneActive=false;state.tut=4;
+    state.world='as';WORLD='as';
+    EXP.as=new Set();for(let cx=0;cx<16;cx++)for(let cy=0;cy<12;cy++)EXP.as.add(cx+','+cy);  // 探索左上大片
+    const sc=Math.max(4,Math.min(((620/ASW)|0),((420/ASH)|0)));
+    const px=(tx,ty)=>{renderMap();const mc=$('mapCv'),g=mc.getContext('2d');
+      const d=g.getImageData(Math.round(tx*sc+sc/2),Math.round(ty*sc+sc/2),1,1).data;return {r:d[0],g:d[1],b:d[2]};};
+    const dist=(a,b)=>Math.abs(a.r-b.r)+Math.abs(a.g-b.g)+Math.abs(a.b-b.b);
+    const cpu={tx:70,ty:14};                                  // mapZones: cpu 区 done=state.asm
+    // cpu 区在 (70,14) 超出已探索片区 → 先把它也探索
+    EXP.as.add(((cpu.tx/6)|0)+','+((cpu.ty/6)|0));
+    state.asm=false;const before=px(cpu.tx,cpu.ty);
+    state.asm=true;const after=px(cpu.tx,cpu.ty);
+    chk('同一格: 全清态像素 ≠ 已探索态(三态肉眼可分)', dist(before,after)>=30, 'Δ='+dist(before,after));
+    chk('全清叠加为暖亮色(G+R 通道抬升)', (after.g+after.r)>(before.g+before.r), JSON.stringify(after)+' vs '+JSON.stringify(before));
+    // 一个探索了但不属于任何全清区的格 → 与全清格明显不同
+    const plain={tx:6,ty:6};const pl=px(plain.tx,plain.ty);
+    chk('已探索(非全清)格 与 全清格 明显不同', dist(pl,after)>=25, 'Δ='+dist(pl,after));
+    // 塔发光逻辑: 六章全清 → towerLit
+    const litAll=REALMS_AS.filter(r=>r.mod).every(()=>true);
+    chk('renderMap 无抛错(含塔/传送门发光分支)', (function(){try{state.flags.reboot_ready=true;EXP.as.add(((TOWER.tx/6)|0)+','+((TOWER.ty/6)|0));renderMap();return true;}catch(e){errs.push(String(e));return false;}})());
+    chk('全程无 JS 错误', errs.length===0, errs.join(' | '));
+    rows.push(['ALL',rows.every(r=>r[1]),'']);
+  }catch(e){rows.push(['EXCEPTION',false,String(e&&e.stack||e)]);}
+  __probeOverlay('MAPTRI',rows);
+})();
+
+/* ---- interior 前墙矮墙探针: index.html#intwall → 下边界/门口前墙判为 parapet(矮墙不遮挡), 后墙/侧墙仍高墙 ---- */
+(function(){
+  if(!/(^|#|&)intwall\b/.test(location.hash||''))return;
+  const rows=[];const chk=(n,c,x)=>rows.push([n,!!c,x||'']);
+  try{
+    if(hasSave())wipeSave();newGame();if(dlg)endDialog();sceneActive=false;state.tut=4;
+    // 合成一个 6x7 室内: 顶=后墙, 左右=侧墙, 底(y=6)=前墙(x=3 处开门), (2,2)=室内障碍块(四周地面)
+    state.interior='__probe';MW=6;MH=7;
+    curTiles=[
+      [1,1,1,1,1,1],
+      [1,0,0,0,0,1],
+      [1,0,1,0,0,1],
+      [1,0,0,0,0,1],
+      [1,0,0,0,0,1],
+      [1,0,0,0,0,1],
+      [1,1,1,0,1,1] ];
+    chk('底边前墙(2,6) → 矮墙 parapet', isFrontWallTile(2,6)===true);
+    chk('底边前墙(1,6) → 矮墙 parapet', isFrontWallTile(1,6)===true);
+    chk('门口旁前墙(4,6) → 矮墙 parapet', isFrontWallTile(4,6)===true);
+    chk('顶边后墙(2,0) → 保持高墙', isFrontWallTile(2,0)===false);
+    chk('侧墙(0,3) → 保持高墙', isFrontWallTile(0,3)===false);
+    chk('侧墙(5,3) → 保持高墙', isFrontWallTile(5,3)===false);
+    chk('底角(0,6)(上方是侧墙) → 保持高墙', isFrontWallTile(0,6)===false);
+    chk('室内障碍块(2,2)(下方还有地面) → 保持高墙(不误矮化)', isFrontWallTile(2,2)===false);
+    chk('门口开口(3,6) 非墙 → 不参与', isFrontWallTile(3,6)===false&&isWallTile(3,6)===false);
+    chk('碰撞不变: 前墙仍是固体墙(挡路)', isWallTile(2,6)===true&&isWallTile(4,6)===true);
+    chk('野外(非 interior)不触发矮墙', (function(){state.interior=null;const r=isFrontWallTile(2,6);state.interior='__probe';return r===false;})());
+    rows.push(['ALL',rows.every(r=>r[1]),'']);
+  }catch(e){rows.push(['EXCEPTION',false,String(e&&e.stack||e)]);}
+  // 还原有效上下文: 本探针用假 interior(IMODS 无 '__probe')测试分类, 必须复位, 否则 rAF 的 draw() 会在坏状态上死循环卡死 headless
+  try{state.interior=null;running=false;setContext();}catch(e){}
+  __probeOverlay('INTWALL',rows);
 })();
 
 /* ---- 性能探针 (仅 #perf / #perf-nocache 时启用, 正常游玩零开销/零影响) ----

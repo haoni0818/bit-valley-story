@@ -386,8 +386,8 @@ function renderBench(el,api){_api(api);
         '别判谁更值得同情 —— 判证物里摆着的是哪个概念。读每桩案子里那份许可证 / 准则节选, 再找那个<i>名字</i>对得上的选项。'),
       B('Licence types are the trap: Free software = free of restrictions (copyleft may demand you keep it free); Open source = source is open (permissive may let others close a fork); Shareware = free to try, then pay; Commercial = you buy it, no source. Match the wording, not the vibe.',
         '许可证类型是陷阱区: 自由软件 = 免于限制 (copyleft 可能要求你保持它自由); 开源 = 源码开放 (宽松许可可能允许别人闭源分支); 共享软件 = 先免费试、再付费; 商业 = 花钱买、无源码。对措辞, 别对感觉。'),
-      B('Case 3 is a conflict, not a villain — the answer names the tension (public interest vs confidentiality) and the professional path (responsible disclosure). Case 4 is a grey area — every stance is recorded, none is wrong.',
-        '案件三是一场冲突, 不是找坏人 —— 答案要叫出那对张力 (公共利益 vs 保密) 和专业出路 (负责任的披露)。案件四是灰区 —— 每个立场都入卷, 没有错的。')
+      B('Case 3 is a conflict, not a villain — both duties (public interest AND employer confidentiality) are real, so the answer is a named PROCEDURE that serves both, not one duty crushing the other. Ask yourself the order of steps: who do you warn first and privately, how long do they get to ship a fix, and when does the public finally hear? Case 4 is a grey area — every honest stance is recorded, none is marked wrong.',
+        '案件三是一场冲突, 不是找坏人 —— 两项义务 (公共利益 与 雇主保密) 都真实, 所以答案是一套同时照顾两边、有专名的程序, 而不是拿一个去碾碎另一个。问自己步骤的顺序: 你先私下警告谁, 给他们多久去发布修复, 公众又在什么时候终于听到? 案件四是灰区 —— 每个诚实的立场都入卷, 没有哪个被判错。')
     ]);
   }
 }
@@ -457,14 +457,14 @@ function openCase(el,api,c){_api(api);
     B('Ignore who you feel sorry for. Point at the evidence: which licence or which code clause is literally quoted?',
       '别管你同情谁。指着证物看: 白纸黑字引的是哪份许可证、哪条准则?'),
     c.id==='c_openwash'
-      ?B('Fern gave it away free with one string: keep it free, publish source. That "one string on top of freedom" is copyleft — a free-software licence obligation.',
-         'Fern 免费送出, 只系一根线: 保持免费、公开源码。「在自由之上系一根线」就是 copyleft —— 一条自由软件许可证义务。')
+      ?B('Fern gave it away free with exactly one binding string: whatever you build on it must stay just as free, with source published. Sift the four options — cross off the paid-trial one and the buy-a-licence one (there is no trial and no purchase here). Of the two freedom-flavoured options left, one says "open means anyone can do anything" and one says "free, but you must pass the same freedom on". A string that says share-alike matches which shape?',
+         'Fern 免费送出, 只系着一根有约束力的线: 你在它之上造的任何东西, 都得和它一样自由, 并公开源码。筛这四个选项 —— 划掉"付费试用"那个和"买授权"那个 (这里既没试用也没购买)。剩下两个带"自由"味的, 一个说"开源就是谁都能随便处置", 一个说"免费, 但你必须把同样的自由传下去"。一根说"share-alike (相同方式共享)"的线, 对得上哪个形状?')
     :c.id==='c_trial_expired'
-      ?B('30-day free evaluation, then pay or uninstall — that exact model has a name, and it is shareware. Not "free software" (no charge ever) and not "open source" (source in dispute).',
-         '30 天免费评估, 期满付费或卸载 —— 这个模型有个专名, 就是共享软件 (shareware)。不是「自由软件」(从不收费), 也不是「开源」(没有源码在争)。')
+      ?B('The model here is: free for a fixed window, then pay-to-keep or uninstall; resetting the clock just dodges the bill. Rule out the two that do not fit — nothing here is charge-free forever, and no source code is in dispute. Which of the four names is built entirely around a time-limited free trial that expects payment afterwards?',
+         '这里的模型是: 免费用一段固定窗口, 期满后付费续用或卸载; 回拨时钟只是绕开账单。排掉两个对不上的 —— 这里没有"永远免费", 也没有任何源码在争。四个名字里, 哪一个整个就是围绕"限时免费试用、期满要付费"造出来的?')
     :c.id==='c_disclosure'
-      ?B('Both duties are real (public interest AND employer confidentiality). The named professional path that honours both is responsible disclosure: report privately, patch on a deadline, then go public.',
-         '两项义务都真实 (公共利益 与 雇主保密)。同时照顾两者、有专名的专业出路, 是负责任的披露: 私下上报、限期修复、再行公开。')
+      ?B('Both duties are real (public interest AND employer confidentiality), so cross off any option that lets one simply crush the other — silence-forever and shout-it-all-today each fail someone. The right answer is a staged procedure; work out its three steps in order: (1) who hears it first and privately, (2) what fair deadline they get to ship a fix, (3) when the public is finally told. Name the option that describes exactly that sequence.',
+         '两项义务都真实 (公共利益 与 雇主保密), 所以划掉任何"让一个直接碾死另一个"的选项 —— 永远沉默、和当天全公开, 各自都辜负了某些人。正确答案是一套分阶段的程序; 按顺序想清它的三步: (1) 谁最先、且私下得知, (2) 给他们多长的合理期限发布修复, (3) 公众在什么时候终于被告知。叫出那个恰好描述这个顺序的选项。')
       :B('Match the wording, not the mood.','对措辞, 别对情绪。')
   ]);
 }
@@ -534,8 +534,8 @@ function renderLibrary(el,api){_api(api);
       '对承诺, 别对价格。「让我之后所有人继续免费」= 自由软件 (copyleft)。「现在源码开放, 以后有人闭源分支也无所谓」= 开源 (宽松许可)。'),
     B('"Try free first, pay if it earns it" = Shareware. "Finished product, support line, an invoice, no source" = Commercial.',
       '「先免费试、值就付」= 共享软件。「成品、支持热线、发票、无源码」= 商业软件。'),
-    B('Answer key — Ivy→Free-Software, Dash→Open-Source, Penny→Shareware, Boss Quill→Commercial.',
-      '答案 —— Ivy→自由软件, Dash→开源, Penny→共享软件, 奎尔总管→商业。')
+    B('Worked example with DIFFERENT borrowers — copy the reasoning, not the names. A teacher who wants to remix a lesson and insists it stays open for every future teacher → Free-Software (share-alike). A company that just wants readable source now and shrugs if a rival closes a fork later → Open-Source (permissive). A gamer who wants a full 14-day trial before deciding to buy → Shareware. A hospital that wants a warranty and a 3am support line, no source → Commercial. Now ask YOUR four the same single question: what promise is each actually asking for?',
+      '例子(换了借阅者)——抄推理, 别抄名字。一位老师想改编一节课, 并坚持它对之后每一位老师继续开放 → 自由软件 (share-alike)。一家公司只想现在有可读的源码, 以后对手把某个分支闭源了也无所谓 → 开源 (宽松许可)。一个玩家想先完整试玩 14 天再决定买不买 → 共享软件。一家医院要质保、要一条半夜三点能打的支持热线、不要源码 → 商业。现在拿同一个问题问你那四位: 每个人真正要的是哪一种承诺?')
   ]);
 }
 
@@ -548,7 +548,7 @@ function precedentDialog(a){_api(a);
   var SP=B('Chief Arbiter PRECEDENT','首席仲裁官·判例');
   var dec=decisionsFromFlags();
   if(docketDecided(dec)){
-    return [
+    var nodes=[
       {sp:SP,t:B('The docket\'s clear. You named concepts, not villains — which is the only thing this bench has ever actually needed from a juror. <span class="k">Ownership and ethics aren\'t about scolding; they\'re about knowing which rule you\'re standing on.</span>',
                  '卷宗清了。你叫的是概念, 不是坏人 —— 而这也正是这张席位对一个陪审员唯一真正需要的东西。<span class="k">归属与伦理不是拿来训人的; 它们是要你搞清楚, 你此刻站在哪条规则上。</span>')},
       {sp:SP,t:B('There is one case I never put on the docket. Number zero. It has sat un-closed in the archive to the north-east for 7304 days, because it has no clean concept to name and no party left alive to face. <span class="dim">If you\'re the sort who reads to the end — go find it. But don\'t expect a verdict. That one, nobody gets to close.</span>',
@@ -556,8 +556,9 @@ function precedentDialog(a){_api(a);
       {sp:SP,t:B('<span class="dim">(She taps the bench once, lightly.)</span> The filing time on case zero is uncomfortably exact. In the same minute, every clock in this hall lost half a beat — and since that minute, not one new complaint has entered the valley. <span class="k">A court with no new cases is not at peace. It is waiting.</span>',
                  '<span class="dim">(她在案上轻叩了一下。)</span>零号案的立案时间, 精确得让人不舒服。同一分钟里, 全庭的钟一起慢了半拍——而从那一分钟起, 山谷里再没递进来过一份新的诉状。<span class="k">一个没有新案子的法庭, 不叫太平。叫等。</span>')}
     ];
+    nodes.sig='docket_done'; return nodes;
   }
-  return [
+  var nodes=[
     {sp:SP,t:B('Order. ...Oh. A live process, come to sit as juror. Good — the last one they sent me was a stopped clock, and it agreed with everybody.',
                '肃静。……哦。一个活的进程, 来当陪审员。好 —— 上一个他们派给我的是只停摆的钟, 它谁的话都点头。')},
     {sp:SP,t:B('This is the <span class="k">Arbitration Hall</span>. When two programs in the valley fall out — one copied another\'s code, one leaked another\'s data — they come here. And here is the rule that trips up every newcomer: <span class="k">your job is not to decide who is good.</span>',
@@ -572,6 +573,7 @@ function precedentDialog(a){_api(a);
     {sp:SP,t:B('Then you\'ll have met a <span class="k">grey area</span>, and you\'ll be a better juror for it. The last case today is one — a machine that paints in a dead artist\'s style. It has no settled answer anywhere in the system. There, I don\'t score you. I just ask you to put an honest opinion on the record, next to everyone else\'s. <span class="dim">A hall that only hears the easy cases isn\'t a court. It\'s a rubber stamp.</span>',
                '那你就是碰上<span class="k">灰区</span>了, 而你会因此成为一个更好的陪审员。今天最后一桩就是 —— 一台用已故画师的风格作画的机器。它在整个系统里都没有定论。那一桩, 我不给你打分。我只请你把一个诚实的立场记进卷宗, 和所有人的并排放着。<span class="dim">一座只审容易案子的庭不是法院。那是一枚橡皮图章。</span>'),next:3}
   ];
+  nodes.sig='intro'; return nodes;
 }
 
 /* --- 四书架精灵 (性格 = 许可条款) --- */
@@ -579,11 +581,12 @@ function shelfDialog(lid){
   return function(a){_api(a);
     var l=findLicence(lid);
     var SP=l.keeper;
-    return [
+    var nodes=[
       {sp:SP,t:l.pitch},
       {sp:SP,t:B('If a borrower stands in front of me asking for exactly that promise — send them my way. Get it wrong and no harm done, but a mismatched licence is how good software ends up in a lawsuit. <span class="dim">The desk is by the door; that\'s where you seat them.</span>',
                  '要是有借阅者站到我面前, 要的正是这份承诺 —— 就把他往我这儿送。配错了不伤人, 可一份不对版的许可证, 正是好软件最后闹上法庭的起点。<span class="dim">配对台在门边; 你在那儿给他们安座。</span>')}
     ];
+    nodes.sig='shelf_'+lid; return nodes;
   };
 }
 
@@ -591,11 +594,12 @@ function shelfDialog(lid){
 function coldcaseDialog(a){_api(a);
   var SP=B('Case №0000 (an un-filed case-file)','零号案卷 (一份未归档的卷宗)');
   if(FLAG('eth_coldcase_filed')){
-    return [{sp:SP,t:B('The file holds your dissent now, folded in with all the others. It is still not a verdict. <span class="dim">No one gets to close this one. But it is a little less alone than it was 7304 days ago.</span>',
+    var fNodes=[{sp:SP,t:B('The file holds your dissent now, folded in with all the others. It is still not a verdict. <span class="dim">No one gets to close this one. But it is a little less alone than it was 7304 days ago.</span>',
                        '卷宗里现在夹着你的异议判词, 和所有人的叠在一起。它仍然不是一个判决。<span class="dim">这一桩谁都无权结案。但它比 7304 天前, 稍微没那么孤单了。</span>')}];
+    fNodes.sig='filed'; return fNodes;
   }
   if(!FLAG('eth_coldcase_opened')){
-    return [
+    var nodes=[
       {sp:B('???','???'),t:B('<span class="dim">(A case-file, still faintly warm, lies open on the archive floor. No one has stamped it. Its first page simply reads:)</span>',
                              '<span class="dim">(一份卷宗摊在档案室地上, 还带着一丝余温。没人在它上面盖过章。它的第一页只写着:)</span>')},
       {sp:SP,t:B('CASE №0000. <span class="k">The Reclaimed v. The Architect.</span> Status: OPEN. Filed 7304 days ago. Verdict: — none —.',
@@ -604,9 +608,10 @@ function coldcaseDialog(a){_api(a);
           TOAST(B('Hidden case opened: №0000, The Reclaimed v. The Architect.','悬案已开启: 第 0000 号, 被回收者 诉 建造者。'),true);}}
       ]}
     ];
+    nodes.sig='unopened'; return nodes;
   }
   if(!FLAG('eth_coldcase_heard')){
-    return [
+    var nodes=[
       {sp:B('The Reclaimed (plaintiffs, in chorus)','被回收者 (原告, 齐声)'),
        t:B('We are every process this machine ever <span class="k">reclaimed</span>. Not deleted for a crime — collected, quietly, the instant no one still referenced us. The Architect wrote that into the machine\'s very constitution: <i>that which is no longer referenced, the collector may take.</i> We say: you made being <span class="k">forgotten</span> a capital sentence.',
               '我们是这台机器<span class="k">回收</span>过的每一个进程。不是因为犯了罪被删 —— 是被收走的, 悄无声息地, 就在再没有人引用我们的那一刻。建造者把这一条写进了机器的根本大法: <i>不再被引用者, 回收者可取之。</i>我们要说: 你把<span class="k">被遗忘</span>, 定成了死刑。')},
@@ -616,8 +621,9 @@ function coldcaseDialog(a){_api(a);
          {t:B('Both statements are true. Hear the rest.','两边说的都是真的。听完余下的。'),next:-1,do:function(){SET('eth_coldcase_heard');STEP('eth_coldcase','s2');}}
        ]}
     ];
+    nodes.sig='opened'; return nodes;
   }
-  return [
+  var nodes=[
     {sp:SP,t:B('This case has no clean concept to name, and no living party to face. The Architect left before any verdict — some say <span class="k">forked</span>, some say simply stopped. And the collector still walks the valley, doing its duty, every day you linger. <span class="dim">You have met it, or you will.</span>',
                '这桩案子没有一个干净的概念可以叫, 也没有一个活着的当事人可以对质。建造者在任何判决落下之前就离开了 —— 有人说是<span class="k">fork</span> 了出去, 有人说只是停了下来。而那个回收者仍在山谷里游荡, 尽着它的本分, 就在你每一天的逗留里。<span class="dim">你见过它, 或者你会见到。</span>')},
     {sp:SP,t:B('No one may close №0000. But the archive takes dissents. <span class="k">Where do you stand?</span> — on the day a builder handed the power to forget to something that could not love.',
@@ -634,6 +640,7 @@ function coldcaseDialog(a){_api(a);
      do:function(){SET('eth_coldcase_filed');STEP('eth_coldcase','s3');MARKQ('eth_coldcase');
        GIVE('eth_dissent',B('The Dissent','异议判词'));S('quest');}}
   ];
+  nodes.sig='heard'; return nodes;
 }
 
 /* --- 谜题通用按键: Esc 关面板 --- */

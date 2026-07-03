@@ -341,8 +341,8 @@ function renderDesk(el,api){
       '两位十六进制 = 一个字节 = 一个字符。对照卡给了锚点: <b>0x41 = A</b>, 之后按字母表顺序排。<b>0x20 是空格</b>——所以这个地址是两个词。'),
     B('First byte 0x54: 0x54 − 0x41 = 0x13 = 19, so it\'s the 20th letter — <b>T</b>. The first word spells THE. Careful in word two: <b>0x46 is F, 0x45 is E</b> — this exact pair is where ld\'s eyes gave out.',
       '第一个字节 0x54: 0x54 − 0x41 = 0x13 = 19, 往后数是第 20 个字母——<b>T</b>。第一个词拼出 THE。第二个词看仔细: <b>0x46 是 F, 0x45 是 E</b>——ld 的眼睛就是在这两位上花的。'),
-    B('Answer: <b>THE FORGE</b>. Case and spacing don\'t matter — the stamp only checks the letters.',
-      '答案: <b>THE FORGE</b> (锻造厂)。大小写和空格都不计较——邮戳只认字母。')
+    B('Worked example with DIFFERENT bytes — copy the method, not the letters. Take <b>0x4E 0x4F 0x20 0x57 0x41 0x59</b>. Byte by byte: 0x4E is 0x41+13, the 14th letter → N; 0x4F → O; 0x20 is the space; 0x57 → W; 0x41 → A; 0x59 → Y — so it reads "NO WAY". Now run your own nine bytes through the exact same steps, left to right, and write the two words they spell.',
+      '例子(换了字节)——抄方法, 别抄字母。拿 <b>0x4E 0x4F 0x20 0x57 0x41 0x59</b>。一个字节一个字节来: 0x4E 是 0x41+13, 第 14 个字母 → N; 0x4F → O; 0x20 是空格; 0x57 → W; 0x41 → A; 0x59 → Y——于是读作"NO WAY"。现在把你自己那九个字节, 从左到右照这同样的步骤跑一遍, 写下它们拼出的那两个词。')
   ]);
 }
 
@@ -440,8 +440,8 @@ function renderLuggage(el,api){
       '两把钥匙, 有先后: 先按<b>重量升序</b>排; 只有重量打平时, 第二把钥匙才开口——<b>入住顺位小的在前</b>。'),
     B('The trap is the tie: the backpack and the toolcase both weigh 3 kg. Backpack checked in #1, toolcase #4 — so backpack first. Keeping ties in their original order is what sorting folk call <b>stable</b>. It is also what lets qsort sleep.',
       '陷阱就在平局上: 背包和工具箱都是 3 kg。背包是 1 号入住, 工具箱是 4 号——所以背包在前。让平局保持原来的先后, 排序行话叫<b>稳定 (stable)</b>。也是 qsort 能睡着的原因。'),
-    B('Answer: hat box (1kg) → backpack (3kg, #1) → toolcase (3kg, #4) → violin case (5kg) → trunk (8kg).',
-      '答案: 帽盒 (1kg) → 背包 (3kg, 1 号) → 工具箱 (3kg, 4 号) → 琴盒 (5kg) → 大箱 (8kg)。')
+    B('Worked example with DIFFERENT bags — copy the two-key method, not this list. Say you had: kettle 4kg (#2), lamp 2kg (#1), radio 4kg (#3). Weight first: lamp (2kg) comes before the two 4kg items. Those two tie at 4kg, so the second key decides — kettle checked in #2, radio #3, so kettle before radio. Result: lamp → kettle → radio. Now apply the exact same two steps to YOUR five bags: weight ascending, ties broken by earlier check-in.',
+      '例子(换了行李)——抄这两把钥匙的方法, 别抄这张单子。假设你手上是: 水壶 4kg (2 号)、台灯 2kg (1 号)、收音机 4kg (3 号)。先按重量: 台灯 (2kg) 排在两件 4kg 前面。那两件都是 4kg 打平, 于是第二把钥匙决定——水壶是 2 号入住、收音机是 3 号, 所以水壶在收音机前。结果: 台灯 → 水壶 → 收音机。现在把这同样两步用到你那五件行李上: 重量升序, 平局按入住先后。')
   ]);
 }
 

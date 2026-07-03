@@ -361,8 +361,8 @@ function renderPixel(el,api){
         '复习一下: 位图 (bitmap) 图像是像素网格; 1 bit 色深下, 每个像素要么开(亮)要么关(暗)。因为 4 bit = 1 位十六进制, 每位十六进制数字一次就能告诉你 4 个像素的开关状态。(📖 完整讲解见图鉴里的「Bitmap & Colour Depth」条目。)'),
       B('Apply it here: one hex digit = 4 bits. Split 0x42 in half: <b>4</b>=0100, <b>2</b>=0010 → the full row is 0100 0010 (1=lit, 0=dark, read left to right). Quick table: 0=0000 2=0010 4=0100 7=0111 C=1100 E=1110 F=1111 — e.g. 0x7E = 0111 1110 → the middle 6 cells light up, both ends stay dark.',
         '用到这题上: 一位十六进制 = 4 个比特。0x42 拆成两半: <b>4</b>=0100, <b>2</b>=0010 → 整行是 0100 0010(1 亮 0 灭, 从左往右数)。速查: 0=0000 2=0010 4=0100 7=0111 C=1100 E=1110 F=1111——比如 0x7E = 0111 1110 → 中间 6 格全亮, 两头灭。'),
-      B('Answer (cells to light, counting from 1): 0x42→2,7 · 0x7E→2-7 · 0xE7→1,2,3,6,7,8 · 0x24→3,6. Leave any row that\'s already correct alone.',
-        '答案(每行该亮的格, 从 1 数): 0x42→2,7 · 0x7E→2~7 · 0xE7→1,2,3,6,7,8 · 0x24→3,6。已亮对的行别动。')
+      B('Worked example (different numbers — NOT this painting): decode 0x81 → split 8=1000, 1=0001 → 1000 0001 → cells 1 and 8 light, the rest dark. Another: 0x3C → 3=0011, C=1100 → 0011 1100 → cells 3,4,5,6 light. Now do exactly this for each row using the hex label printed beside it; a row already showing ✓ is done, leave it.',
+        '例子·换了数字(不是这幅画): 译 0x81 → 拆成 8=1000, 1=0001 → 1000 0001 → 第 1、8 格亮, 其余灭。再来一个: 0x3C → 3=0011, C=1100 → 0011 1100 → 第 3、4、5、6 格亮。现在照这个办法, 对着每行左边印的十六进制标签自己拆一遍; 已经显示 ✓ 的行就是对的, 别动。')
     ]);
     mk(mk(wrap,'div','margin-top:8px;'),'button',BTN,tx('Leave','离开')).onclick=function(){api.closePanel&&api.closePanel();};
     return;
@@ -440,8 +440,8 @@ function renderPixel(el,api){
         '复习一下: 色深 (colour depth) 是存一个像素颜色要用几个 bit。1 bit = 2 种颜色(开/关); 2 bit = 2²=4 种颜色, 从一个小调色板里选。每像素位数越多, 颜色越多, 文件也越大。(📖 完整讲解见图鉴里的「Bitmap & Colour Depth」条目。)'),
       B('Apply it here: now 1 pixel = <b>2 bits</b>: 00 black · 01 green · 10 red · 11 yellow. A row of 6 pixels makes 12 bits, folded into 3 hex digits. E.g. 0x2F8 → 0010 1111 1000 → slice into pairs: 00,10,11,11,10,00 → black red yellow yellow red black. Translate every row the same way.',
         '用到这题上: 现在 1 像素 = <b>2 bit</b>: 00 黑 · 01 绿 · 10 红 · 11 黄。一行 6 像素拼成 12 bit, 再折成 3 位十六进制。比如 0x2F8 → 0010 1111 1000 → 按两位切: 00,10,11,11,10,00 → 黑 红 黄 黄 红 黑。照这样把每行翻译出来。'),
-      B('Answer: rows 1/4 = black black red red black black; rows 2/3 = black red yellow yellow red black; row 5 = black black green green black black; row 6 = black green green green green black. It\'s a flower.',
-        '答案: 第1/4行 黑黑红红黑黑; 第2/3行 黑红黄黄红黑; 第5行 黑黑绿绿黑黑; 第6行 黑绿绿绿绿黑。是一朵花。')
+      B('Worked example (different numbers — NOT this flower): decode a row 0x1B4 → binary 0001 1011 0100 → cut into 2-bit pairs: 00 01 10 11 01 00 → black green red yellow green black. So the chain is: hex → 12 bits → six pairs → six colours. Now run each row\'s own 3-hex label through those same four steps.',
+        '例子·换了数字(不是这朵花): 译一行 0x1B4 → 二进制 0001 1011 0100 → 按两位切: 00 01 10 11 01 00 → 黑 绿 红 黄 绿 黑。所以链条是: 十六进制 → 12 bit → 六对 → 六种颜色。现在把每行自己的 3 位十六进制标签, 照这四步各走一遍。')
     ]);
     mk(mk(wrap,'div','margin-top:8px;'),'button',BTN,tx('Leave','离开')).onclick=function(){api.closePanel&&api.closePanel();};
     return;
@@ -495,8 +495,8 @@ function renderPixel(el,api){
           '复习一下: 从画反推十六进制, 就是把位图解码反过来做: 把每行像素从左到右读成比特(亮=1 灭=0), 再把每 4 位折成一位十六进制。(📖 见图鉴里的「Bitmap & Colour Depth」条目。)'),
         B('Apply it here: write each row\'s 8 cells as binary, split into a first group of 4 bits and a second group of 4, then convert each group to one hex digit separately. E.g. 0001 1000 → 1 and 8 → 0x18.',
           '用到这题上: 把每行 8 格写成二进制, 分成前 4 位一组、后 4 位一组, 每组分别换成一位十六进制。比如 0001 1000 → 1 和 8 → 0x18。'),
-        B('Row 1 lights cells 4 and 5 → 0001 1000 → 0x18. Work the rest the same way, row by row — don\'t skip any.',
-          '第1行亮第4、5格 → 0001 1000 → 0x18。剩下的按同样办法一行一行来, 别跳行。')
+        B('Worked example (different row — NOT from this painting): suppose a row lights cells 2, 3 and 7 → write it out as 0110 0010 → split 0110|0010 → 6 and 2 → 0x62. Read your painting the same way: lit cell = 1, dark = 0, then fold each half-row into one hex digit. Do every row.',
+          '例子·换了行(不是这幅画): 假设某行亮第 2、3、7 格 → 写成 0110 0010 → 拆 0110|0010 → 6 和 2 → 0x62。照这个读你的画: 亮格=1, 暗格=0, 再把每半行折成一位十六进制。每行都做。')
       ]);
       mk(mk(wrap,'div','margin-top:8px;'),'button',BTN,tx('Leave','离开')).onclick=function(){api.closePanel&&api.closePanel();};
     };
@@ -580,6 +580,27 @@ function renderAscii(el,api){
     inp=mk(bar,'input','width:46px;background:#050d05;color:#7CFC00;border:1px solid #7CFC00;'+
       'font-family:inherit;font-size:16px;text-align:center;padding:3px;');
     var msg=mk(wrap,'div','min-height:18px;font-size:12px;color:#ffce3a;margin-top:4px;');
+    /* 顿悟归玩家、劳动归机器: 亲手译对前 2 个字符(证明会查表)后, 剩下的查表苦力交给机器, 玩家确认即可。
+       对照表始终显示在面板内(asciiTable), 破译到收尾 ≤30s。 */
+    var finishBar=mk(wrap,'div','margin-top:8px;');
+    function updateFinish(){
+      finishBar.innerHTML='';
+      if(prog>=2&&prog<typables.length){
+        var remain=typables.length-prog;
+        var fb=mk(finishBar,'button',BTN_HOT,
+          tx('⚡ You\'ve cracked it — let the machine look up the remaining '+remain+' characters',
+             '⚡ 你已破译 —— 让机器查表译完剩下 '+remain+' 个字符'));
+        fb.onclick=function(){
+          S(api,'ok');
+          prog=typables.length;SET(api,'dt_ascii_prog',prog);
+          finish();
+        };
+        mk(finishBar,'div',DIM+'margin-top:3px;',
+          tx('(You\'ve proved you can read the ASCII table. The rest is pure lookup labour — the machine handles it, you just confirm.)',
+             '(你已经证明会查 ASCII 对照表了。剩下的只是查表苦力——交给机器, 你确认即可。)'));
+      }
+    }
+    updateFinish();
     inp.onkeydown=function(e){
       if(e.key&&e.key.length===1){
         e.preventDefault();
@@ -589,7 +610,7 @@ function renderAscii(el,api){
           prog++;SET(api,'dt_ascii_prog',prog);
           S(api,'step');msg.textContent='';
           if(prog>=typables.length){finish();return;}
-          draw();
+          draw();updateFinish();
         }else{
           S(api,'err');fail(api,'dt_ascii');
           msg.textContent=tx(
@@ -635,8 +656,8 @@ function renderAscii(el,api){
         '复习一下: ASCII 给每个英文字母、数字和常用标点各自分配一个 0~127 的编号, 一个字符 = 一个字节。它就是一张双向对照表: 数字→字符, 或字符→数字都能查。(📖 完整讲解见图鉴里的「ASCII & Unicode」条目。)'),
       B('Apply it here: A=65, and the rest follow alphabetically — B=66, C=67… Take code 83: 83-65=18, count 18 letters past A and you get S. Digits are easier: 0=48, so code 49 is 1. Don\'t memorise the whole table, just add/subtract from A=65 or 0=48.',
         '用到这题上: A=65, 往后按字母顺序排——B=66, C=67……比如码 83: 83-65=18, A 往后数 18 个就是 S。数字更好记: 0=48, 码 49 就是 1。不用背整张表, 从 A=65 或 0=48 加减就行。'),
-      B('Full answer: <b>SHE STILL DREAMS. KEEP HER ON. - 1970</b>. Type it in one highlighted cell at a time.',
-        '整句答案: <b>SHE STILL DREAMS. KEEP HER ON. - 1970</b>。照着高亮格一个个敲进去。')
+      B('Worked example (different codes — NOT this letter): decode 67 65 84 → 67 is 65+2, two letters past A → C; 65 → A; 84 is 65+19 → T; so that reads CAT. Digits count off 48: code 55 → 55-48=7 → \'7\'. Decode the highlighted cell this way; once you\'ve hand-decoded two, the ⚡ button lets the machine finish the lookup.',
+        '例子·换了码(不是这封信): 译 67 65 84 → 67 是 65+2, A 往后两个字母 → C; 65 → A; 84 是 65+19 → T; 连起来是 CAT。数字从 48 起算: 码 55 → 55-48=7 →「7」。照这样译当前高亮格; 亲手译够两个后, ⚡ 按钮就能让机器查表译完。')
     ]);
     mk(mk(wrap,'div','margin-top:8px;'),'button',BTN,tx('Leave','离开')).onclick=function(){api.closePanel&&api.closePanel();};
     return;
@@ -731,7 +752,8 @@ function renderAscii(el,api){
           '复习一下: ASCII 每个字符恒定花 1 字节。Unicode 要给地球上所有文字腾地方, 所以 UTF-8(存 Unicode 的一种方式)用的是<b>变长</b>字节: 原本 ASCII 范围内 1 字节, 其他的要更多。(📖 完整讲解见图鉴里的「ASCII & Unicode」条目。)'),
         B('Apply it here: ASCII characters (English letters, digits) always cost 1 byte in UTF-8 too (backward compatible); common CJK characters cost 3 bytes. For mixed strings, count each part separately then add.',
           '用到这题上: ASCII 字符(英文字母、数字)在 UTF-8 里也恒花 1 字节(向下兼容); 常用汉字花 3 字节。混合字符串就分开数再相加。'),
-        B('Answer: ① 5 ② 3 ③ 6.','答案: ① 5 ② 3 ③ 6。')
+        B('Worked example (different string — NOT the three questions): how many UTF-8 bytes for "HI" plus two common Chinese characters? H and I are ASCII → 1 byte each = 2; each common Chinese character takes 3 bytes → 2 × 3 = 6; total 2 + 6 = 8. So: count each ASCII character as 1 byte, each common Chinese character as 3, then add. Tally each question the same way.',
+          '例子·换了字符串(不是这三道题): "HI" 加两个常用汉字, 存成 UTF-8 占几字节? H 和 I 是 ASCII → 各 1 字节 = 2; 每个常用汉字占 3 字节 → 2 × 3 = 6; 合计 2 + 6 = 8。所以: ASCII 字符各算 1 字节, 常用汉字各算 3, 再相加。每道题都照这个数法算。')
       ]);
       mk(mk(wrap,'div','margin-top:8px;'),'button',BTN,tx('Leave','离开')).onclick=function(){api.closePanel&&api.closePanel();};
     };
@@ -965,8 +987,8 @@ function renderBcdAdd(el,api){
       '复习一下: BCD 的每个 4 bit 分组只准出现 0000~1001(0~9)的模式。普通二进制加法不认这条规矩——只要某位的和超过 9, 它就会算出 1010~1111 这种非法模式。(📖 完整讲解见图鉴里的「BCD」条目。)'),
     B('Apply it here: the low 4 bits give 7+5=12 (1100) — illegal in BCD. Correction rule: whenever a group exceeds 9, add +6 to make it "skip" the 6 ghost values 1010-1111, carrying 1 into the next digit. 1100+0110 = 1 0010 → low digit 0010, carry 1.',
       '用到这题上: 低 4 位算出 7+5=12(1100)——BCD 里非法。修正法则: 某组 >9 就 <b>+6</b>, 让它"跳过"1010~1111 这 6 个鬼位, 并向高位进 1。1100+0110=1 0010 → 低位 0010, 进位 1。'),
-    B('High digit: 2+1+carry 1 = 4 → 0100. Final answer: <b>0100 0010</b> (i.e. decimal 42).',
-      '高位: 2+1+进位1 = 4 → 0100。最终答案: <b>0100 0010</b> (即十进制 42)。')
+    B('Worked example (different numbers — NOT 27+15): add 47 + 35 in BCD. Low digits 7+5 = 12 (1100, illegal) → add 6 → 12+6 = 18 → low nibble 0010 (digit 2), carry 1 into the high digit. High digits 4+3+carry 1 = 8 → 1000. Result 1000 0010 = 82. Now run 27+15 through the very same low-digit / +6 / carry / high-digit steps.',
+      '例子·换了数字(不是 27+15): 在 BCD 里算 47 + 35。低位 7+5 = 12(1100, 非法)→ 加 6 → 12+6 = 18 → 低半字节 0010(数字 2), 向高位进 1。高位 4+3+进位1 = 8 → 1000。结果 1000 0010 = 82。现在把 27+15 照这套「低位 / +6 / 进位 / 高位」的步骤自己走一遍。')
   ]);
   mk(mk(wrap,'div','margin-top:8px;'),'button',BTN,tx('Leave','离开')).onclick=function(){renderClock(el,api);};
 }
@@ -1133,8 +1155,8 @@ function renderWave(el,api){
       '切换采样率时盯着黄线看。点隔得太远时, 黄线跟不上绿波的抖动——它会"折叠"成一条更慢的、错误的波。这个折叠就是采样率太低会丢高音的原因(不是变小声, 而是变成假的低音)。(📖 详见图鉴「Sampling Rate」。)'),
     B('The rule (Nyquist): to keep a frequency, snapshot at least <b>twice</b> as fast. This recording holds up to 20 kHz, so the minimum safe rate is 2 × 20 kHz = <b>40 kHz</b>. Which offered rate is the lowest one that clears 40 kHz?',
       '法则(奈奎斯特): 要留住某频率, 采样至少要快<b>两倍</b>。这段录音含到 20 kHz, 所以安全的最低采样率是 2 × 20 kHz = <b>40 kHz</b>。给的选项里, 哪个是"刚好超过 40 kHz"的最低那个?'),
-    B('Answer: <b>44.1 kHz</b> — the lowest offered rate above 40 kHz (and, not by coincidence, the sample rate of CD audio). 8k and 16k both fall short, so their high notes alias.',
-      '答案: <b>44.1 kHz</b>——选项里唯一超过 40 kHz 的最低采样率(也正是 CD 音质的采样率, 并非巧合)。8k 和 16k 都不够, 高音会走样。')
+    B('Worked example (different numbers — NOT this bench): say a recording tops out at 6 kHz and the offered rates are 8 / 10 / 16 kHz. Minimum safe rate = 2 × 6 = 12 kHz. 8 and 10 fall short (their 6 kHz content folds into a fake low note); the lowest offered rate that clears 12 kHz is 16 kHz. Now run the same two steps here: double the recording\'s top frequency, then pick the lowest offered rate that reaches it.',
+      '例子·换了数字(不是这台修复台): 假设一段录音最高含 6 kHz, 给的采样率是 8 / 10 / 16 kHz。安全最低采样率 = 2 × 6 = 12 kHz。8 和 10 都不够(它们会把 6 kHz 折成假低音); 选项里能过 12 kHz 的最低那个是 16 kHz。现在照这两步在本台上走: 把录音最高频率翻倍, 再选出能达到它的最低采样率。')
   ]);
 }
 
@@ -1176,6 +1198,7 @@ function curatorDialog(api){
     nodes[6].t=B(nodes[6].t.en+'<br><span class="dim">(It turns back to dusting the empty air, starting again from the three-hundred-and-first time.)</span>',
                  nodes[6].t.zh+'<br><span class="dim">(它回头继续给空气除尘, 从第三百零一次开始)</span>');
     nodes.onEnd=function(){SET(api,'dt_met_curator');};
+    nodes.sig='meet';
     return nodes;
   }
 
@@ -1190,17 +1213,20 @@ function curatorDialog(api){
                   '五十年后要是再有人闯进这台机器, 会同时读到你们两个人的话。这就是编码的意义: 让说过的话, 有地方坐。'),next:-1}
     ];
     nodes.onEnd=function(){SET(api,'dt_reply_ack');};
+    nodes.sig='reply_ack';
     return nodes;
   }
 
   if(!FLAG(api,'dt_pixel_done')){
     var ccGo=cc('Go, quickly. It just looked at me again.','快去。它刚才又看我了。');
-    return [
+    nodes=[
       {sp:SP,t:cc('\'Cat\' is still missing four rows of pixels. The hex source is on the frame — one hex digit equals four bits, 1 for lit, 0 for dark.',
                   '《猫》还缺四行像素。十六进制底稿在画框上, 一位十六进制 = 四个比特, 1 亮 0 灭。')},
       {sp:SP,t:B(ccGo.en+'<span class="dim">(Those two hollow patches on the canvas really do look like eyes.)</span>',
                  ccGo.zh+'<span class="dim">(画布上那两个空洞确实很像眼睛)</span>'),next:-1}
     ];
+    nodes.sig='need_pixel';
+    return nodes;
   }
   if(!FLAG(api,'dt_ascii_done')){
     nodes=[
@@ -1215,6 +1241,7 @@ function curatorDialog(api){
                   'You read it. Tell me how many characters it has, when you\'re done.',
                   '那封信是这台机器的第一任主人留下的。我没读过——校验 daemon 只数字符, 不配读内容。你读吧, 读完告诉我它有多少个字。'),next:-1}
     ];
+    nodes.sig='need_ascii';
     return nodes;
   }
   if(!FLAG(api,'dt_clock_done')){
@@ -1234,6 +1261,7 @@ function curatorDialog(api){
         '……那座钟数的东西, 是我唯一一次都不敢数的。<span class="k">到底过去了多少时间。</span>铭牌上写着二十年。我从没校验过。<span class="dim">有些数字, 一旦核对了, 就再也回不到不知道的时候。</span>'
       ),next:-1}
     ];
+    nodes.sig='need_clock';
     return nodes;
   }
 
@@ -1256,20 +1284,23 @@ function curatorDialog(api){
                  '<span class="dim">(这一句, 它没有报字数。有些话不需要校验, 说出口就是完整的。)</span>'),next:-1}
     ];
     nodes.onEnd=function(){SET(api,'dt_curator_final');};
+    nodes.sig='final';
     return nodes;
   }
   if(!FLAG(api,'dt_s3_done')){
-    return [
+    nodes=[
       {sp:SP,t:cc('Aria, in the south-east corner, is still waiting for someone who understands sound. She used to be the best singer on this whole machine — then '+
                   'backup space ran short, and someone compressed her down to 8kHz.',
                   '东南角的 Aria 还在等一个懂声音的人。她从前是全机器最好的歌手——后来备份空间不够, 有人把她压到了 8kHz。')},
       {sp:SP,t:cc('The original recording still exists; the recycler could never bring itself to reclaim it. Go check the restoration bench. When she sings, I count the beat — I never miscount that.',
                   '原始录音还在, 回收者一直没舍得收。去修复台看看吧。她唱歌的时候, 我数拍子, 从来不数错。'),next:-1}
     ];
+    nodes.sig='aria_hint';
+    return nodes;
   }
   var ccSteps=cc('By the way, you walked a lot of steps around the gallery today. I didn\'t count exactly how many.',
                  '顺带一提, 你今天在馆里走了很多步。具体几步我没数。');
-  return [
+  nodes=[
     {sp:SP,t:cc('Closing time is forever. So is opening time. Come back any time — I\'ll be here, and so will all sixty-four pixels.',
                 '闭馆时间是永远, 开馆时间也是。欢迎随时回来, 我和六十四个像素都在。')},
     {sp:SP,t:cc('And if sixty-four pixels ever start to feel small — head south. We have a sister hall, hidden deeper: the Gallery of Lost Fidelity, where they keep everything that compression chose to lose. Tell the docent the museum sent you.',
@@ -1277,6 +1308,8 @@ function curatorDialog(api){
     {sp:SP,t:B(ccSteps.en+'<br><span class="dim">(It\'s lying. It counted.)</span>',
                ccSteps.zh+'<br><span class="dim">(它撒谎了。它数了。)</span>'),next:-1}
   ];
+  nodes.sig='idle';
+  return nodes;
 }
 
 /* 采样歌姬 Aria: 只剩 8kHz 的歌手残影。修复前, 台词本身就是"掉采样"的(用 ▓ 模拟丢字)。 */
@@ -1284,13 +1317,15 @@ function ariaDialog(api){
   var SP=B('Songstress Aria','歌姬·Aria');
 
   if(FLAG(api,'dt_s3_done')){
-    return [
+    var nodes=[
       {sp:SP,t:B('<span class="dim">(She\'s humming a very soft melody; the tail of each note rings bright, like new.)</span><br>'+
                  'Now I\'m saving up for a 96kHz dream. The curator calls that hi-res. I call it greedy. '+
                  '<span class="k">But if you\'re going to dream, dream at full sample rate.</span>',
                  '<span class="dim">(她在哼一段很轻的旋律, 尾音亮得像新的)</span><br>'+
                  '现在我在攒一个 96kHz 的梦。馆长说那叫 hi-res, 我说那叫贪心。<span class="k">但做梦嘛, 就要做全采样的。</span>'),next:-1}
     ];
+    nodes.sig='sang';
+    return nodes;
   }
 
   if(FLAG(api,'dt_wave_done')){
@@ -1320,16 +1355,19 @@ function ariaDialog(api){
       STEP(api,'dt_s3');
       playSong();
     };
+    nodes.sig='rebuilt';
     return nodes;
   }
 
   if(FLAG(api,'dt_s1_met')){
-    return [
+    var nodes=[
       {sp:SP,t:B('Fou▓nd my ori▓ginal rec▓ording yet? <span class="dim">(She points toward the restoration bench in the south-west corner.)</span><br>'+
                  '<span class="dim">The recycler\'s patrol log menti▓ons where it ended up... that bench▓ knows how to use it.</span>',
                  '找▓到 我▓的 原▓始 录▓音 了 吗? <span class="dim">(她指了指西南角的修复台)</span><br>'+
                  '<span class="dim">回收者的巡视记录里写▓着它的下落……那台修复台▓知道怎么用它。</span>'),next:-1}
     ];
+    nodes.sig='waiting';
+    return nodes;
   }
 
   var first=[
@@ -1355,6 +1393,7 @@ function ariaDialog(api){
     {sp:SP,t:B('<span class="dim">(She nods, and goes back to humming that song with no high notes. Every time it reaches the chorus, only the beat is left.)</span>',
               '<span class="dim">(她点点头, 继续哼那支缺了高音的歌。每到副歌, 就只剩拍子。)</span>'),next:-1}
   ];
+  first.sig='intro';
   return first;
 }
 

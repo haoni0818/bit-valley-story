@@ -428,8 +428,8 @@ function renderBridge(el,api){
       '死锁 (deadlock) 四条件: 互斥、持有并等待、不可剥夺、循环等待。桥是不可抢占的, 前三条改不了——能下手的只有「循环等待 (circular wait)」。'),
     B('You hold A waiting for B; the caravan holds B waiting for A — the waiting has closed into a ring. To break the ring, everyone must request resources <b>in the same order</b>. But the caravan takes no orders from you... go talk to its chief.',
       '你先占A等B, 商队先占B等A —— 等待关系成了一个环。要破环, 就得让所有人<b>按同一个顺序</b>申请资源。可商队不归你控制……去跟它的首领谈。'),
-    B('Answer: talk to the caravan chief first and agree a total order — "everyone requests Bridge A first". Then come back and pick Bridge A yourself: same first resource means a queue, never a ring.',
-      '答案: 先与商队首领对话, 约定「资源全序 (total order): 都先申请桥A」。回来后你也选桥A——首个资源相同, 只会排队, 不会成环。')
+    B('Worked example (different scenario): two cooks share one Salt jar and one Pepper jar, and a dish needs both. Cook X takes Salt then waits for Pepper; Cook Y takes Pepper then waits for Salt — the waiting closes into a ring and both freeze. Cure: agree one house rule that <b>everyone always takes Salt before Pepper</b>. Whoever grabs Salt first cooks; the other simply queues for Salt — a queue, never a ring. This bridge is the same shape: the fix is a single agreed order over the two resources that BOTH parties obey. So ask yourself — who else is grabbing these bridges, and how do you get them to request in the same order as you?',
+      '例子(换了场景): 两个厨子共用一罐盐和一罐胡椒, 一道菜两样都要。厨子X先拿盐、再等胡椒; 厨子Y先拿胡椒、再等盐——等待成环, 俩人都冻住。解法: 约定一条厨房规矩——<b>所有人都先拿盐、后拿胡椒</b>。谁先拿到盐谁先做, 另一个只是排队等盐: 是队, 不是环。这两座桥同理: 要害是给这两个资源定<b>一个双方都遵守的统一顺序</b>。所以问自己——还有谁在抢这两座桥? 怎么让对方和你按同一个顺序申请?')
   ]);
 }
 
@@ -585,8 +585,8 @@ function renderPaging(el,api){
       '手环只有 4 个页框, 而迷宫里有 10 种页。想少缺页, 就要走「页的种类少」的路线——这叫访问的<b>局部性 (locality)</b>。'),
     B('The dead ends P5, P6 and P7 are bait: each visit costs one extra fault. The east route P0→P1→P2→P8→P9 and the west route P0→P3→P4→P8→P9 each touch exactly 5 distinct pages.',
       '死胡同 P5、P6、P7 是诱饵: 进去一次就多一次缺页。沿东侧 P0→P1→P2→P8→P9 或西侧 P0→P3→P4→P8→P9, 都恰好只碰 5 种页。'),
-    B('Answer (east route): from P0 head right across the two P1 cells, enter the P2 column and ride it all the way south, then turn right through P8 to the P9 exit. 5 distinct pages = 5 faults, exactly on budget. And do not backtrack — the oldest page has already been evicted by FIFO; going back costs fault #6.',
-      '答案(东线): 从 P0 向右经两格 P1, 进 P2 一路向南(P2 竖着一整条), 到底后右转经 P8 到 P9 出口。全程 5 种页 = 5 次缺页, 正好达标。别回头——最早的页已被 FIFO 换出, 回头就是第 6 次。')
+    B('Worked example (different numbers): suppose a wristband holds 3 frames and a little maze has pages Q0..Q6. Route ① touches Q0, Q1, Q4, then Q1 again, then Q5 — but Q1 comes back AFTER Q4 loaded, and with only 3 frames FIFO already evicted Q1, so it faults a second time. Route ② touches Q0, Q2, Q5 — three distinct pages, three faults, and never revisits. Pick ② because it (a) crosses the fewest DISTINCT pages and (b) never steps back onto a page FIFO has thrown out. Run exactly that two-part test on your own candidate routes, then walk the winner without ever turning back.',
+      '例子(换了数字): 假设手环只有 3 个页框, 一座小迷宫有 Q0~Q6。路线① 依次碰 Q0、Q1、Q4, 然后又回到 Q1, 再到 Q5——可 Q1 是在 Q4 换入之后才重现的, 只有 3 个页框, FIFO 早把 Q1 换出了, 于是它第二次缺页。路线② 依次碰 Q0、Q2、Q5——只 3 种页、3 次缺页, 且从不回头。选② 的理由: (a) 经过的<b>不同页种数</b>最少; (b) 绝不踩回已被 FIFO 换出的页。拿这套两条判据去比你自己的候选路线, 然后一路别回头地走赢家。')
   ]);
 }
 
@@ -742,8 +742,8 @@ function renderKmap(el,api){
       'K-map 的规矩: 只能圈 1, 圈的大小必须是 1/2/4/8, 形状是矩形——且<b>左右两缘相接、上下两缘也相接</b>(它是个甜甜圈)。圈越大, 化简出的项越短。'),
     B('Count the lit cells: just right of center sits a tidy 2×2 (m5, m7, m13, m15). Where are the other four 1s? <b>The four corners.</b> On a doughnut, the four corners are actually adjacent — they form a single group of 4.',
       '数一数亮格: 中间偏右有一块规整的 2×2 (m5,7,13,15)。剩下四个亮格在哪? <b>四个角</b>。四个角在甜甜圈上其实是彼此相邻的——它们是一个 4 格圈。'),
-    B('Answer: ① circle the four corners m0, m2, m8, m10 → ¬B·¬D; ② circle the central 2×2 m5, m7, m13, m15 → B·D. Two groups: F = ¬B¬D + BD (the XNOR of B and D). Close both groups, then chant.',
-      '答案: ① 圈四角 m0,m2,m8,m10 → ¬B·¬D; ② 圈中央 2×2 m5,m7,m13,m15 → B·D。共两圈, F = ¬B¬D + BD (B 与 D 的同或 XNOR)。收拢两圈后咏唱。')
+    B('Worked example (different map): take G = Σm(0,4,12,8) on a 4-variable A,B,C,D map. Plot those four cells and they fill the whole leftmost column; since the map wraps top-to-bottom, that column is one legal group of 4. Now read what NEVER changes inside the group: C stays 0 and D stays 0, while A and B both vary — so the surviving term is ¬C·¬D, giving G = ¬C¬D. The recipe you just watched: (1) find the largest legal rectangle (allowing wrap-around) that covers only 1s, (2) keep only the variables that never change inside it, (3) OR the terms together. Run that same recipe on YOUR lit cells — first the tidy central block, then look hard at the four corners.',
+      '例子(换了图): 取 G = Σm(0,4,12,8), 画在四变量 A,B,C,D 图上。把这四格标出来, 正好填满最左一整列; 由于图上下相接, 这一列就是一个合法的 4 格圈。再看圈内<b>始终不变</b>的变量: C 恒为 0、D 恒为 0, 而 A、B 都在变——所以留下的项是 ¬C·¬D, 即 G = ¬C¬D。你刚看到的套路: (1) 找出只盖住 1、允许环绕的最大合法矩形; (2) 只保留圈内始终不变的变量; (3) 各项相或。拿这同一套路去圈你自己的亮格——先圈规整的中央块, 再盯紧四个角。')
   ]);
 }
 
@@ -1019,8 +1019,8 @@ function renderGate(el,api){
       '三扇门, 三种「结束一次调用」的方式: exit(0) 干净退出、exit(1) 带着错误码退出、还有一种……函数结束的本来面目是什么?'),
     B('The third door wants a "key that does not exist". The scarred wall back in Chapter 1 once gave out a pair of coordinates — anyone who walked there should be carrying a ghost key. And the door only shows itself to those who have finished all three domain main quests.',
       '第三扇门要「不存在的钥匙」。第一章那面刻痕之墙给过一对坐标——走到过那里的人, 兜里应该有一把幽灵密钥。另外它只对走完全部三个领域主线的人显形。'),
-    B('True-ending requirements: the ghost key + the carry ember (Logic Gate Foundry) + the session key (Protocol Tower) + this domain\'s Karnaugh seal broken. With all four in hand, open /dev/null — and go meet the you of twenty years ago.',
-      '真结局条件: 幽灵密钥 + 进位火种(逻辑门锻造厂) + 会话密钥(协议之塔) + 本领域卡诺图破解。齐了就开 /dev/null——去见 20 年前的自己。')
+    B('Think of the true ending as a function that can only return once every deeper call has already returned. So work it one frame at a time: (a) which single door is a function ending the natural way functions were always meant to end — neither exit(0) nor exit(1)? (b) that door demands a "key that does not exist" — where in this world was such a key ever handed out, and have you actually been there? (c) it also reveals itself only to someone who has closed <b>every</b> domain\'s main quest — so count them: have all of them returned yet? The /dev/null door below spells out precisely which pieces you are still missing. Settle each sub-question, and the outermost call can finally return too.',
+      '把真结局想成一个函数: 只有当每一层更深的调用都已 return, 它才能 return。所以一帧一帧地捋: (a) 哪一扇门对应「函数以它本来该有的方式结束」——既不是 exit(0) 也不是 exit(1)? (b) 那扇门要一把「不存在的钥匙」——这世界里什么地方发过这样一把钥匙, 你真的到过那里吗? (c) 它还只对「走完<b>每一个</b>领域主线」的人显形——数一数: 它们都 return 了吗? 下方的 /dev/null 之门会明确列出你还差哪几样。把每个子问题各自了结, 最外层那次调用才终于能 return。')
   ]);
 }
 

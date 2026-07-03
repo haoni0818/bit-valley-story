@@ -165,14 +165,17 @@ function liftDialog(a){ _api(a);
   nodes.push({sp:SP,t:B(
     'That floor\'s protocol is still broken. I refuse to carry a passenger into a floor that won\'t ACK back — last time I tried that, the passenger came out an orphan process. <span class="dim">Go fix the puzzle downstairs first.</span>',
     '那一层的协议还是断的。我拒绝把乘客运进一个不回 ACK 的楼层——上次这么干, 乘客变成了孤儿进程。<span class="dim">先把下面的谜题修好。</span>'),next:-1});
+  /* 气泡签名: 只随「可达楼层集合」变化 —— 新楼层解锁=真的有新内容 */
+  nodes.sig='lift:'+FLOORS.map(function(f){return floorUnlocked(f)?'1':'0';}).join('');
   return nodes;
 }
 
 /* --- 1F: 端口看门人 :80 —— 古老 daemon, 发主线 --- */
 function watcherDialog(a){ _api(a);
   var SP=B('Port Warden :80','端口看门人 :80');
+  var nodes;
   if(getFlag('net_p3')){
-    return [
+    nodes=[
       {sp:SP,t:B('The session key is glowing on you. The whole tower is sending and receiving again — first full round-trip time I\'ve heard in twenty years.',
                  '会话密钥在你身上发光。整座塔又开始收发了——20 年来头一回, 我听见一个包出去, 又听见它回来。完整的一次<span class="k">往返 (RTT)</span>。')},
       {sp:SP,t:B('...One piece of advice from an old daemon, little process: that scorched stone you saw at the top of the tower — don\'t take it too seriously. Don\'t take it too lightly either. Where any given packet ends up, nobody on this floor can say for sure.',
@@ -180,24 +183,27 @@ function watcherDialog(a){ _api(a);
       {sp:SP,t:B('…And since you\'ve earned the key, one line from the old logbook. The morning everything stopped, the outbound queue held one last packet — destination: <span class="k">OUTSIDE</span>. It never got its ACK. I filed it as <span class="k">in transit</span>. Not "lost". In transit. <span class="dim">Twenty years now. I\'m not amending the record.</span>',
                  '……钥匙都到手了, 就给你念一条老航海日志。一切停摆的那个上午, 出港队列里还剩最后一个包——目的地: <span class="k">「外面」</span>。它一直没等到 ACK。我把它记成了<span class="k">在途</span>。不是「丢失」。是在途。<span class="dim">二十年了。这条记录, 我不改。</span>')},
     ];
+    nodes.sig='p3_done'; return nodes;
   }
   if(getFlag('net_p2')){
-    return [
+    nodes=[
       {sp:SP,t:B('Connection established, is it? Then all that\'s left is the <span class="k">Handshake Sanctum</span> at the top. The door\'s locked with RSA — public key hanging right on it, private key torn into three seals.',
                  '连接已建立? 那就只剩塔顶的<span class="k">握手圣殿</span>了。门是 RSA 锁的——公钥挂在门上, 私钥被拆成了三道封印。')},
       {sp:SP,t:B('Fair warning: a <span class="k">Quantum Ghost</span> lives up there. Sharp tongue. But everything it says with that smirk turns out to be true.',
                  '提醒一句: 圣殿里住着个<span class="k">量子幽灵</span>。它嘴很毒, 但它说的每一句风凉话, 都是真的。')},
     ];
+    nodes.sig='p2_done'; return nodes;
   }
   if(getFlag('net_p1')){
-    return [
+    nodes=[
       {sp:SP,t:B('The routes are patched, the lift can reach 3F now. That floor is guarded by <span class="k">SYN·D</span> — the most by-the-book warden I\'ve got. Want through? Play by its rules: the <span class="k">three-way handshake</span>.',
                  '路网通了, 电梯能上 3F 了。那层守着<span class="k">SYN·D</span>——最守规矩的守门人。想过去, 就按它的规矩来: <span class="k">三次握手 (three-way handshake)</span>。')},
       {sp:SP,t:B('Why exactly three? Go ask it yourself. It\'s been explaining that question for twenty years and still enjoys every telling.',
                  '为什么偏偏是三次? 你去问它。它解释这个问题, 已经解释了 20 年, 依然乐在其中。')},
     ];
+    nodes.sig='p1_done'; return nodes;
   }
-  return [
+  nodes=[
     {sp:SP,t:B('Halt. ...Oh. Not a packet — a process. A live one, even. That\'s rare.',
                '站住。……哦, 不是包, 是个进程。还是个<span class="k">活的</span>。稀罕。')},
     {sp:SP,t:B('I\'m the Port Warden, number :80. This <span class="k">Protocol Tower</span> used to be the whole machine\'s throat for talking to the outside world — one floor for cabling, one for finding a path, one for reliability, and the top floor for meaning. Layering isn\'t bureaucracy — it\'s so each floor only has to worry about its own business: swap out any one layer, and the others never even notice. They just keep running.',
@@ -212,17 +218,20 @@ function watcherDialog(a){ _api(a);
     {sp:SP,t:B('Stairs? This is a protocol stack, little process. <span class="k">Cross-layer shortcuts are a building code violation</span>. Data only moves up and down through the interface of the adjacent layer — same rule applies to you. Go take the lift.',
                '楼梯? 这是协议栈, 小进程。<span class="k">跨层直连是违章建筑</span>。数据只能通过相邻层的接口上下——你也一样。去坐电梯。'),next:3},
   ];
+  nodes.sig='intro'; return nodes;
 }
 
 /* --- 2F: 丢失的包 SEQ-7734 (支线) --- */
 function lostDialog(a){ _api(a);
   var SP=B('SEQ-7734','SEQ-7734');
+  var nodes;
   if(getFlag('net_lostDone')){
-    return [{sp:B('...','…'),t:B('Only a faint, almost-faded radio trace lingers here, quietly looping its last frame:<br><span class="dim">"FIN-ACK. Goodbye."</span>',
+    nodes=[{sp:B('...','…'),t:B('Only a faint, almost-faded radio trace lingers here, quietly looping its last frame:<br><span class="dim">"FIN-ACK. Goodbye."</span>',
                                  '这里只剩一缕将散未散的电波, 安安静静地循环着最后一帧:<br><span class="dim">「FIN-ACK。再见。」</span>')}];
+    nodes.sig='done'; return nodes;
   }
   if(!getFlag('net_lostMet')){
-    return [
+    nodes=[
       {sp:B('???','???'),t:B('...You can see me? You can SEE me! Twenty years, and you\'re the first one to ever ACK my existence.',
                               '……你看得见我? <span class="k">你看得见我!</span> 20 年了, 你是第一个对我的存在回 ACK 的。')},
       {sp:SP,t:B('I\'m a packet. Fragment #7734 of a video call, to be precise: 5 bytes of payload, a checksum, and a heart that wants to go home. The destination\'s written right on my header — <span class="k">10.0.7.34</span>.',
@@ -238,11 +247,13 @@ function lostDialog(a){ _api(a);
         }},
       ]},
     ];
+    nodes.sig='first_meet'; return nodes;
   }
   if(getFlag('net_lostRouted')){        // 已查明真相, 直接进入结局段
-    return lostEndingNodes();
+    nodes=lostEndingNodes();
+    nodes.sig='ending'; return nodes;
   }
-  return [
+  nodes=[
     {sp:SP,t:B('Did you find it? <span class="k">10.0.7.0/24</span> — the way home. Which interface?',
                '查到了吗? <span class="k">10.0.7.0/24</span>——我回家的路, 走哪个口?'),choices:[
       {t:B('eth0 — the 10.0.1.0/24 one','eth0 —— 10.0.1.0/24 那条'),next:1},
@@ -264,6 +275,7 @@ function lostDialog(a){ _api(a);
     {sp:SP,t:B('You\'re lying. <span class="dim">Packets are the most latency-sensitive things there are — every word you say arrives a little later than the last one when you\'re lying.</span> Tell me. What does the stele actually say.',
                '你在说谎。<span class="dim">包对时延最敏感——你说谎的时候, 每个字都到得比上一个字晚。</span>说吧。石碑上到底写了什么。'),next:3},
   ].concat(lostEndingNodes(5));
+  nodes.sig='asking'; return nodes;
 }
 function lostEndingNodes(base){
   base=base||0;   // 若拼接在别的节点后面, next 需要偏移
@@ -296,16 +308,18 @@ function lostEndingNodes(base){
 /* --- 3F: 握手守门人 SYN·D —— 严格按协议说话, 三句必回 ACK --- */
 function synDialog(a){ _api(a);
   var SP=B('Handshake Warden SYN·D','握手守门人 SYN·D');
+  var nodes;
   if(getFlag('net_p2')){
-    return [
+    nodes=[
       {sp:SP,t:B('Status: <span class="k">ESTABLISHED</span>. This connection between us holds until you send FIN. Go on up.',
                  '状态: <span class="k">ESTABLISHED</span>。我们之间的连接将保持到你发 FIN 为止。上楼吧。')},
       {sp:SP,t:B('The door at the top isn\'t my jurisdiction. It doesn\'t recognise a handshake — only <span class="k">mathematics</span>.',
                  '塔顶的门不归我管——它认的不是握手, 是<span class="k">数学</span>。')},
       {sp:SP,t:B('ACK.','ACK。')},
     ];
+    nodes.sig='established'; return nodes;
   }
-  return [
+  nodes=[
     {sp:SP,t:B('Incoming connection request detected. Notice: this daemon speaks strictly by protocol, and <span class="k">returns an ACK every third sentence</span> without fail. It\'s courtesy. It\'s also a heartbeat.',
                '检测到接入请求。声明: 本 daemon 严格按协议发言, 且<span class="k">每第三句话必回一次 ACK</span>。这是礼貌, 也是心跳。')},
     {sp:SP,t:B('To pass this checkpoint, complete a TCP <span class="k">three-way handshake</span> with me at the terminal beside you. SYN, SYN-ACK, ACK — not one sentence short, not one sequence number wrong.',
@@ -322,13 +336,15 @@ function synDialog(a){ _api(a);
     {sp:SP,t:B('A sequence number is the <span class="k">page number</span> of a byte stream. Without it, a world where everything arrives out of order could never be put back together — you\'ve already had a taste of that on 2F. Both sides announce an Initial Sequence Number (ISN) during the handshake, and after that every byte has its own number. Anything lost, anything duplicated — plain to see.',
                '序列号是字节流的<span class="k">页码</span>。没有它, 乱序到达的世界永远拼不回原样——2F 的路网你应该已经领教过了。握手时双方各报一个初始序列号(ISN), 此后每个字节都有自己的编号, 谁丢了、谁重复了, 一目了然。'),next:2},
   ];
+  nodes.sig='pending'; return nodes;
 }
 
 /* --- 顶层: 量子幽灵 —— §17.3 quantum cryptography 的嘴 --- */
 function ghostDialog(a){ _api(a);
   var SP=B('Quantum Ghost','量子幽灵');
+  var nodes;
   if(getFlag('net_p3')){
-    return [
+    nodes=[
       {sp:SP,t:B('Open, is it? Open. Congratulations — you defended a door using multiplication tables that top out at twenty.',
                  '开了? 开了。恭喜, 你用 20 以内的乘法表守住了一扇门。')},
       {sp:SP,t:B('Keep that session key somewhere safe. Until my kind wakes up — until <span class="k">Shor\'s algorithm</span> finds a quantum computer big enough to run on — it still counts as a secret.',
@@ -336,8 +352,9 @@ function ghostDialog(a){ _api(a);
       {sp:SP,t:B('Though, honestly... if you people ever all switch to <span class="k">quantum key distribution</span> — hand keys over on photons, where an eavesdropper gives themselves away the instant they touch one — then a ghost who makes a living mocking RSA is going to be out of a job. <span class="dim">When that day comes, do me the courtesy of a FIN.</span>',
                  '不过说真的……如果有一天你们全都改用<span class="k">量子密钥分发</span>, 用光子递钥匙, 窃听者一碰就露馅——那我这种以嘲笑 RSA 为生的幽灵, 该失业了。<span class="dim">到那天, 记得也送我一个 FIN。</span>')},
     ];
+    nodes.sig='p3_done'; return nodes;
   }
-  return [
+  nodes=[
     {sp:SP,t:B('Oh? Another one here to crunch RSA. Adorable. Your whole species bets its entire security on one wager — <span class="k">"factoring large numbers is hard."</span>',
                '哦? 又一个来算 RSA 的。可爱。你们这个物种, 把全部安全押在一个赌注上——<span class="k">「大数分解很难」</span>。')},
     {sp:SP,t:B('Hard? Hard for a classical computer. The day a quantum computer truly wakes up and runs <span class="k">Shor\'s algorithm</span>, factoring your precious 2048-bit numbers takes about as long as one of my yawns. This door\'s n=33... please, allow me to skip even the yawn.',
@@ -354,6 +371,7 @@ function ghostDialog(a){ _api(a);
     {sp:SP,t:B('Hmph. Impatient little classical bit. Go on then — get φ(n) wrong and I promise I\'ll laugh out loud.',
                '哼, 心急的经典比特。去吧——φ(n) 算错的话, 我会笑出声的。'),next:-1},
   ];
+  nodes.sig='pending'; return nodes;
 }
 
 /* ================================================================
@@ -365,8 +383,8 @@ var P1_HINTS=[
     '提示 1/3: 包#k 在 tick k 出发(0,1,2,3)。路由 A 的 α-D 链路在「奇数 tick 出发」时必断——所以包#1、包#3 千万别走 A。'),
   B('Hint 2/3: send everything via B? Safe, but packet #3 needs 3+6=9 ticks to arrive, and the watchdog times out at tick 7. That\'s the whole point of packet switching: each packet picks whatever route suits it best right now, even if that means arriving out of order.',
     '提示 2/3: 全走 B? 稳是稳, 但包#3 要 3+6=9 tick 才到, 看门狗 7 tick 就超时了。分组交换的精髓: 每个包各自挑当下最合适的路, 哪怕会乱序到达。'),
-  B('Hint 3/3: one valid solution — #0 via A (arrives tick 2), #1 via C (arrives tick 5), #2 via A (arrives tick 4), #3 via C (arrives tick 7). Arrival order is 0, 2, 1, 3 — scrambled, but the sequence numbers put them back together.',
-    '提示 3/3: 一组正解——#0走A(tick2到), #1走C(tick5到), #2走A(tick4到), #3走C(tick7到)。到达顺序 0,2,1,3, 乱序, 但序列号会把它们拼回去。'),
+  B('Hint 3/3: break it into three sub-questions — ① which packets are forbidden from route A? (the ones that depart on an odd tick). ② Packet #3 leaves at tick 3 and must land by tick 7, so it needs a route with delay ≤ 4: which routes qualify, and what does the γ-congestion rule demand of the packet right before it? ③ Packets #0 and #2 depart on even ticks — which route gets each of them there fastest? Answer all three and the plan assembles itself; arriving out of order is fine, the sequence numbers re-sort everything at D.',
+    '提示 3/3: 拆成三个小问题——① 哪些包不许走路由 A? (奇数 tick 出发的那些)。② 包#3 在 tick 3 出发、必须 ≤ tick 7 到达, 需要延迟 ≤ 4 的路由: 哪些路由满足? γ 拥塞规则又对它前一个包提了什么要求? ③ 包#0 和 #2 都在偶数 tick 出发——哪条路让它们各自最快到? 三问答完, 方案自己就拼出来了; 乱序到达没关系, 序列号会在 D 把一切排回去。'),
 ];
 function p1Render(el,a){ _api(a);
   var solved=!!getFlag('net_p1');
@@ -476,8 +494,8 @@ var HS_HINTS=[
     '提示 1/3: 三次握手 = SYN → SYN-ACK → ACK。先亮明来意: 发 SYN, 带上你的初始序列号 ISN=100。'),
   B('Hint 2/3: in step three, your seq = your own ISN+1 = 101 (the SYN itself consumes one sequence number); ack = "the next byte number I expect from you" = the other side\'s ISN+1.',
     '提示 2/3: 第三步里, 你的 seq = 自己的 ISN+1 = 101 (SYN 本身占掉一个序号); ack = 「我期待你发的下一个字节编号」= 对方的 ISN+1。'),
-  B('Hint 3/3: look at "seq=<some number>" in the SYN-ACK — that\'s the warden\'s ISN. Answer: put 101 in seq, and that number+1 in ack.',
-    '提示 3/3: 看 SYN-ACK 里 "seq=某个数"——那就是守门人的 ISN。答案: seq 填 101, ack 填 那个数+1。'),
+  B('Hint 3/3: worked example (different numbers) — suppose a client with ISN=300 sends [SYN] seq=300, and the server replies [SYN-ACK] seq=555, ack=301. The client\'s final [ACK] is then seq=301 (its own ISN plus one) and ack=556 (the seq it just read from the server, plus one). Now redo exactly that arithmetic with YOUR ISN and the seq shown in the SYN-ACK on screen.',
+    '提示 3/3: 例子(换了数字)——设某客户端 ISN=300, 发 [SYN] seq=300; 服务器回 [SYN-ACK] seq=555, ack=301。那么客户端最后的 [ACK] 就是 seq=301 (自己的 ISN 加一), ack=556 (刚读到的服务器 seq 加一)。现在用你自己的 ISN 和屏幕上 SYN-ACK 里的 seq, 做一遍同样的算术。'),
 ];
 var HS_RST=[
   B('RST. ack means "the next byte number I expect from you" = the other side\'s seq + 1. Connection reset — sequence numbers reshuffled.',
@@ -589,8 +607,8 @@ var RSA_HINTS=[
     '提示 1/3: 门上刻着 p=3, q=11。第一道封印 φ(n)=(p−1)×(q−1)。这就是 RSA 的命门: 谁能把 n 分解回 p 和 q, 谁就能算出一切。'),
   B('Hint 2/3: the second seal wants a d such that e·d ≡ 1 (mod φ). In other words, try values from 1 to 19: find the d where 3×d divided by 20 leaves remainder 1. Use the calculator below.',
     '提示 2/3: 第二道封印找 d, 使 e·d ≡ 1 (mod φ)。也就是从 1 到 19 里试: 3×d 除以 20 余 1 的那个 d。用下面的计算器试。'),
-  B('Hint 3/3: d=7 (3×7=21, remainder 1 when divided by 20). Decrypt with M = C^7 mod 33 — use the calculator to work out 5, 26, and 14, each to the 7th power mod 33, then translate the results into letters with A=1...Z=26.',
-    '提示 3/3: d=7 (3×7=21, 除 20 余 1)。解密: M = C^7 mod 33, 用计算器逐个算 5、26、14 的七次幂模 33, 结果按 A=1…Z=26 译成字母。'),
+  B('Hint 3/3: worked example (different numbers) — take p=5, q=7: then n=35, φ=(5−1)×(7−1)=24, and say e=5. Hunt for d in 1..23 with 5×d mod 24 = 1 → d=5 (5×5=25, remainder 1). Round trip check: M=4 encrypts to C = 4^5 mod 35 = 9, and decrypting gives 9^5 mod 35 = 4 — right back where it started. Your door has different p, q, e: run exactly these three steps on them with the calculator below, then turn each recovered M into a letter (A=1…Z=26).',
+    '提示 3/3: 例子(换了数字)——取 p=5, q=7: 则 n=35, φ=(5−1)×(7−1)=24, 设 e=5。在 1..23 里找 d, 使 5×d 除以 24 余 1 → d=5 (5×5=25, 余 1)。验证一个来回: M=4 加密成 C = 4^5 mod 35 = 9, 再解密 9^5 mod 35 = 4——原样回来。门上的 p、q、e 和这不一样: 用下面的计算器对它们跑同样三步, 最后把每个解出的 M 按 A=1…Z=26 译成字母。'),
 ];
 function ghostSay(el,msg){
   var g=el.querySelector('#rsaGhost');

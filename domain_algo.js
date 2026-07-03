@@ -641,8 +641,8 @@ function renderBubbleG(el,api,cfg){
         '冒泡排序 (bubble sort) 的全部人设: <b>比较相邻两人, 左边更大就交换</b>。重复到没有人需要换为止。大数会像气泡一样往右端"浮"。'),
       B('Do not compare at random — scan <b>left to right</b> and press VS only where the left fighter is bigger. A comparison that ends in KEEP is a comparison wasted (the crowd knows it, too).',
         '别乱点——<b>从左往右扫</b>, 只在"左边比右边大"的地方按 VS。一次以"不换"收场的比较就是浪费 (看台心里也有数)。'),
-      B('Record run for [42, 7, 88, 23, 61]: swap 42-7, then 88-23, then 88-61, then 42-23. Four comparisons, four swaps, zero boos.',
-        '纪录打法 [42, 7, 88, 23, 61]: 换 42-7, 再换 88-23, 再换 88-61, 最后换 42-23。四次比较, 四次交换, 零嘘声。')
+      B('Worked example, different numbers — sort [30, 5, 50, 20], swapping only where the left neighbour is bigger. Left to right: 30>5 swap (5 30 50 20); 30<50 keep; 50>20 swap (5 30 20 50). Next sweep: 5<30 keep; 30>20 swap (5 20 30 50); 30<50 keep — a full sweep with no swaps means done. Three swaps: 30-5, 50-20, 30-20. Your line-up is the same drill — scan left to right, press VS only on a left-bigger pair, repeat sweeps until one clean pass needs none.',
+        '例子 (换了数字) —— 把 [30, 5, 50, 20] 排好, 只在"左边更大"处交换。从左往右: 30>5 换 (5 30 50 20); 30<50 不换; 50>20 换 (5 30 20 50)。下一趟: 5<30 不换; 30>20 换 (5 20 30 50); 30<50 不换——整趟扫下来一次都不换, 就排完了。三次交换: 30-5、50-20、30-20。你面前这排是同样的套路——从左往右扫, 只在"左大右小"处按 VS, 一趟趟重复, 直到有一趟完全不用换。')
     ]);
   }else{
     mk(wrap,'div',DIM+'margin-top:6px;',
@@ -1122,8 +1122,8 @@ function renderTavern(el,api){
         '每一句 SQL 查询都是同一个骨架, 从左到右念下来就像一句话: <b>SELECT</b>(要哪些列) → <b>FROM</b>(来自哪张表) → <b>WHERE</b>(哪些行合格——可选) → <b>ORDER BY</b>(怎么排序——可选, 永远放最后)。翻译成人话: "给我这些列, 来自这张表, 只要这个条件成立的, 按这个排序。"'),
       B('Order 1: SELECT name FROM patrons WHERE table_no = 3. Order 2 starts with SELECT * and needs ORDER BY bounty DESC at the end. Order 3 wants two columns (name, bounty) and TWO conditions glued with AND. GRANT grades the result rows, not your handwriting — any query returning the right rows is a right query.',
         '第 1 单: SELECT name FROM patrons WHERE table_no = 3。第 2 单以 SELECT * 开头, 结尾要 ORDER BY bounty DESC。第 3 单要两列 (name, bounty), 外加用 AND 粘住的两个条件。GRANT 只验结果的行对不对, 不验字迹——只要返回的行对, 怎么写都算对。'),
-      B("Full answers — ① SELECT name FROM patrons WHERE table_no = 3 ② SELECT * FROM patrons WHERE bounty > 100 ORDER BY bounty DESC ③ SELECT name, bounty FROM patrons WHERE bounty > 100 AND table_no = 3. Copy carefully; GRANT respects a clean transcript.",
-        '完整答案 —— ① SELECT name FROM patrons WHERE table_no = 3 ② SELECT * FROM patrons WHERE bounty > 100 ORDER BY bounty DESC ③ SELECT name, bounty FROM patrons WHERE bounty > 100 AND table_no = 3。抄仔细点, GRANT 敬重誊写工整的人。')
+      B("Worked example on a DIFFERENT table — picture a table books(title, author, price, shelf). \"Titles of books on shelf 2\": SELECT title FROM books WHERE shelf = 2. \"Whole record of books over 20, dearest first\": SELECT * FROM books WHERE price > 20 ORDER BY price DESC. \"Title and price of books over 20 that are also on shelf 2\": SELECT title, price FROM books WHERE price > 20 AND shelf = 2. Map those three shapes straight onto patrons — same skeleton, swap in your own columns and conditions.",
+        '换一张表的例子 —— 设想有张表 books(title, author, price, shelf)。"2 号书架上的书名": SELECT title FROM books WHERE shelf = 2。"价格超过 20 的完整记录, 最贵的排前面": SELECT * FROM books WHERE price > 20 ORDER BY price DESC。"价格超过 20 且在 2 号书架上的书名与价格": SELECT title, price FROM books WHERE price > 20 AND shelf = 2。把这三种形状原样套到 patrons 上——骨架相同, 换成你自己的列和条件即可。')
     ]);
     if(inChal){
       mk(wrap,'div',DIM+'margin-top:6px;',
@@ -1178,6 +1178,7 @@ function mcDialog(api){
         '<span class="dim">(它敲了敲散热片, 当的一声, 像面小锣。)</span> 去吧! 荣耀的缓冲区不等人!'),next:-1}
     ];
     nodes.onEnd=function(){SET(api,'algo_met_mc');};
+    nodes.sig='intro';
     return nodes;
   }
 
@@ -1215,6 +1216,7 @@ function mcDialog(api){
       SET(api,'algo_contract');STEP(api,'algo_s2');
       GIVE(api,'linear_contract','Linear Search Contract');
     };
+    side.sig='side_contract';
     return side;
   }
 
@@ -1240,30 +1242,37 @@ function mcDialog(api){
       '<span class="dim">(它降下来, 直到排线领结与你的视线齐平。)</span><br>'+
       '八人乱斗。千数狩猎。辛迪加大单。<span class="k">三项挑战, 三张零封。</span>'+
       '等这台机器的史官写下竞技场最后一条 commit message 时, <span class="k">第一行, 写的就是你这一轮。</span>'),next:-1});
+    nodes2.sig=allCh?'champ_all':'champ';
     return nodes2;
   }
   if(bd&&bn){
-    return [fixed,
+    var nodesBoth=[fixed,
       {sp:SP,t:B(
         'TWO victories! The tavern beyond the east gate has unbolted — I heard the lock give up personally. '+
         '<span class="k">GRANT awaits.</span> Mind the house rules on the stone outside: <span class="dim">rule one concerns a boy named Bobby Tables.</span>',
         '两场全胜! 东门外的酒馆已经开闩——那把锁认输的声音我亲耳听见了。'+
         '<span class="k">GRANT 恭候。</span>进门前看看石碑上的店规: <span class="dim">第一条和一个叫 Bobby Tables 的男孩有关。</span>'),next:-1}];
+    nodesBoth.sig='both_done';
+    return nodesBoth;
   }
   if(bd||bn){
-    return [fixed,
+    var nodesOne=[fixed,
       {sp:SP,t:B(
         bd?'ONE down! The sorting pit still tells stories about you. Now the hunt, contestant — <span class="k">the zombie in the east pit</span> has been practising its victory dance. End its career.'
           :'ONE down! The zombie\'s cousin wants a rematch it will not get. Now the west pit, contestant — <span class="k">five fighters, adjacent swaps only</span>. The crowd is already warming up its boos.',
         bd?'拿下一场! 排序场至今还在传颂你的事迹。接下来是狩猎, 挑战者——<span class="k">东场那只僵尸</span>最近在偷偷练胜利之舞。终结它的职业生涯。'
           :'拿下一场! 僵尸的表哥想要复赛, 但它等不到了。接下来去西场, 挑战者——<span class="k">五位选手, 只许相邻交换</span>。观众已经在热身他们的嘘声了。'),next:-1}];
+    nodesOne.sig=bd?'one_bubble':'one_bin';
+    return nodesOne;
   }
-  return [fixed,
+  var nodesCard=[fixed,
     {sp:SP,t:B(
       'The card stands! <span class="k">Bubble Grand Prix, west pit. Binary Hunt, east pit.</span> Win both and the tavern opens. '+
       '<span class="dim">And if you meet an old fighter by the south wall… be kind. Legends bruise easier than rookies.</span>',
       '赛程照旧! <span class="k">西场冒泡竞速, 东场二分猎手。</span>两场全胜, 酒馆开门。'+
       '<span class="dim">对了, 要是在南墙边遇到一位老选手……客气点。传奇比新秀更经不起碰。</span>'),next:-1}];
+  nodesCard.sig='card';
+  return nodesCard;
 }
 
 /* Linear Larry —— 退役的顺序查找者。一辈子只会从头找到尾。 */
@@ -1271,13 +1280,15 @@ function larryDialog(api){
   var SP=B('Linear Larry','顺查老将 Larry');
 
   if(FLAG(api,'algo_larry_end')){
-    return [{sp:SP,t:B(
+    var nodesEnd=[{sp:SP,t:B(
       '<span class="dim">(By the south wall, the old searcher is buffing a brass badge: CHIEF SEARCHER, LOST-AND-FOUND. A grateful socket hugs its ankle.)</span><br>'+
       'Found a widow\'s lost checksum this morning. Element by element, same as always. '+
       '<span class="k">Turns out the arena never retired me. It just filed me under the wrong index.</span> …Drop by if you ever lose anything, kid. If it exists, I find it.',
       '<span class="dim">(南墙边, 老查找者正在擦一枚黄铜徽章: 失物堆·首席查找官。一只被找回的 socket 感激地抱着他的脚踝。)</span><br>'+
       '今早帮一位遗孀找回了走失的校验和。逐个元素查, 和从前一样。'+
       '<span class="k">原来竞技场从没让我退役, 只是把我归错了索引。</span>……丢了东西就来找我, 孩子。只要它在, 我就找得到。'),next:-1}];
+    nodesEnd.sig='larry_end';
+    return nodesEnd;
   }
 
   if(FLAG(api,'algo_contract')){
@@ -1305,15 +1316,18 @@ function larryDialog(api){
     nodes.onEnd=function(){
       SET(api,'algo_larry_end');STEP(api,'algo_s3');S(api,'quest');
     };
+    nodes.sig='contract';
     return nodes;
   }
 
   if(FLAG(api,'algo_larry_met')){
-    return [{sp:SP,t:B(
+    var nodesWatch=[{sp:SP,t:B(
       '<span class="dim">(He is watching the binary pit from the shadow of the south wall, the way old boxers watch title fights.)</span><br>'+
       'Seven guesses. A hundred numbers. <span class="dim">In my day we called that witchcraft. Now they call it… logarithms.</span>',
       '<span class="dim">(他站在南墙的阴影里望着二分猎场, 像老拳手看新人的冠军战。)</span><br>'+
       '七次。一百个数。<span class="dim">我们那个年代管这叫巫术。现在他们管这叫……对数 (logarithm)。</span>'),next:-1}];
+    nodesWatch.sig='larry_watching';
+    return nodesWatch;
   }
 
   var first=[
@@ -1347,6 +1361,7 @@ function larryDialog(api){
       '<span class="dim">(他继续望着赛场。出于习惯, 他的目光从看台第 1 座扫到第 2 座、第 3 座……他会扫完全部。他从来都会扫完。)</span>'),next:-1}
   ];
   first.onEnd=function(){SET(api,'algo_larry_met');STEP(api,'algo_s1');};
+  first.sig='larry_intro';
   return first;
 }
 

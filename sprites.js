@@ -773,13 +773,34 @@ function nbrs(n){
    kind(可选第 8 参): 'rock'(默认, 自然断崖 — 世界地图的山体/边界用这个,
    顶面不规则起伏+岩层立面, 不会被误读成房子) | 'wall'(人造墙 — interior
    房间墙/要塞城墙用, 平顶直立面的建筑语言)。 */
-function drawWallTall(ctx,x,y,size,neighbors,world,t,kind,wx,wy){
+function drawWallTall(ctx,x,y,size,neighbors,world,t,kind,wx,wy,parapet){
   const p=pal(world), u=size/16, n=nbrs(neighbors);
   /* 细节斑点种子必须用世界格坐标 (wx,wy), 否则镜头一滚屏幕坐标就变→斑点每步重掷。
      兼容旧调用: 未传世界坐标时退回屏幕坐标推算(仅无缓存/静止时可用)。 */
   const tx=(wx!=null)?wx:Math.round(x/size), ty=(wy!=null)?wy:Math.round(y/size);
   t=t||0; kind=kind||'rock';
   const h1=hash(tx,ty,11), h2=hash(tx,ty,12);
+
+  /* ---- 矮墙/门垛 (parapet): interior 下边界(前墙)专用 —— 全部绘制限制在本格内, 绝不向上一格溢出,
+     所以永远不会遮住门口和站在门前的玩家。上/左/右仍走下方的高墙分支。(工单 #10) ---- */
+  if(parapet){
+    const capH=6;                                          // 顶盖厚度(16 基)
+    const rp=R(ctx,x,y,u);                                 // 注意: 用本格 y(而非 y-size), 不向上溢出
+    rp(p.g1,0,capH,16,16-capH);                            // 短立面基底
+    rp(rgba(p.dim,0.42),0,capH,16,16-capH);                // 立面背光
+    for(let i=0;i<3;i++){const px=(1+hash(tx,ty,20+i)*14)|0;rp(rgba(p.bg,0.6),px,capH+1,1,16-capH-3);} // 竖缝
+    if(h2>0.6)rp(rgba(p.bg,0.32),(2+h1*11)|0,(capH+3)|0,3,2);
+    rp(p.g1,0,0,16,capH);                                  // 顶盖(亮)
+    rp(rgba(p.mid,0.78),0,0,16,capH);                      // 顶盖阳光
+    rp(p.hi2,0,0,16,1);                                    // 顶棱受光
+    rp(p.mid,0,capH,16,1);                                 // 檐口
+    rp('rgba(20,28,38,.30)',0,capH+1,16,1.2);              // 檐下投影
+    if(!n.left){rp(p.hi2,0,0,1,capH);rp(p.bg,0,capH,1,16-capH);}
+    if(!n.right){rp(p.hi2,15,0,1,capH);rp(p.bg,15,capH,1,16-capH);}
+    rp('rgba(20,28,38,.36)',0,14,16,2);                    // 接地暗带
+    if(h1>0.86){const bl=0.3+0.3*Math.sin(t/700+tx*1.7+ty);rp(rgba(p.hi,bl),(2+h2*11)|0,1,3,1);} // 顶面微光
+    return;
+  }
 
   if(kind==='rock'){
     /* ---- 自然断崖: 顶面不规则 + 岩层立面 ---- */

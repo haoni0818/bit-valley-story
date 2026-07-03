@@ -55,6 +55,29 @@ function sluiceCheck(gate){
   }
   return {ok:true};
 }
+/* 谜题1 · 实时状态判定 (纯函数, 可单测, 无 DOM):
+   输入 isOpen = 此刻闸门是否在放水; shouldOpen = 此刻本就该不该放水。
+   返回 {tone,kind,text}。颜色语义铁律 —— tone==='calm'(蓝/青)只在
+   isOpen===shouldOpen(行为正确)时出现; 任何不一致(该关却放 / 该放却关)
+   一律 tone==='warn'(橙/红)。错误态永远不得渲染成蓝/青。 */
+function sluiceStatus(isOpen,shouldOpen){
+  isOpen=!!isOpen;shouldOpen=!!shouldOpen;
+  if(isOpen===shouldOpen){
+    return {tone:'calm',kind:isOpen?'open_ok':'shut_ok',text:isOpen
+      ? B('✓ Right now correct — gate OPEN and it should be: coolant flowing on cue.',
+          '✓ 此刻正确——闸门开·正该放水: 冷却水按拍流着。')
+      : B('✓ Right now correct — gate shut and it should be: holding back, not time to pour yet.',
+          '✓ 此刻正确——闸门关·正该关着: 先憋住, 还不到放水的时候。')};
+  }
+  if(isOpen&&!shouldOpen){
+    return {tone:'warn',kind:'over',text:B(
+      '⚠ Flowing now — but A/B are NOT both high: the mold quench-cracks!',
+      '⚠ 正在放水·但 A/B 未同时到位——铸模淬裂!')};
+  }
+  return {tone:'warn',kind:'under',text:B(
+    '⚠ Gate sealed shut — but both sensors are high and the furnace is heating up!',
+    '⚠ 闸门紧闭·两个传感器都到位了——炉子在升温!')};
+}
 
 /* 谜题2: XOR 铸模。固定拓扑:
    out = n3( G3( n1(G1(A,B)), n2(G2(A,B)) ) )
@@ -215,10 +238,14 @@ function renderSluice(el,api){
       st.gate=st.gate==='AND'?'OR':st.gate==='OR'?'NOT':'AND';
       S(api,'ui');draw();
     };
-    var out=sluiceOutput(st.gate,st.a,st.b);
+    var out=sluiceOutput(st.gate,st.a,st.b),req=GATES.AND(st.a,st.b);
+    var stt=sluiceStatus(out,req);
     mk(l2,'span','color:#5a8a5a;','━━▶');
-    mk(l2,'span',out?'color:#39d0ff;text-shadow:0 0 8px #39d0ff;':'color:#4a5a6a;',
-      out?tx('≋ Gate OPEN · flowing','≋ 闸门开 · 放水'):tx('▦ Gate shut','▦ 闸门关'));
+    /* 行为+判定+后果 三合一实时状态行。calm(蓝/青)只在此刻行为正确时出现,
+       出错(该关却放 / 该放却关)一律用 warn(橙红), 杜绝"蓝色被误读成正确答案"。 */
+    var CALM='color:#39d0ff;text-shadow:0 0 8px #39d0ff;',
+        WARN='color:#ff9c3a;text-shadow:0 0 8px rgba(255,120,40,.65);font-weight:bold;';
+    mk(l2,'span',stt.tone==='calm'?CALM:WARN,T(stt.text));
     var l3=mk(board,'div','display:flex;align-items:center;gap:8px;margin:4px 0;');
     var bb=mk(l3,'button',st.b?BTN_HOT:BTN,tx('Sensor B: ','传感器 B: ')+st.b);
     bb.onclick=function(){st.b^=1;S(api,'step');draw();};
@@ -276,8 +303,8 @@ function renderSluice(el,api){
       '复习一下: AND 门接收两个输入, 只有两个都是 1 才输出 1; 其余组合都输出 0。它是三种基本门里最严格的: OR 只要一个高就满足, AND 要求全都高。(📖 完整讲解见图鉴里的「Logic Gates」条目。)'),
     B('Apply it here: the maintenance plate is a truth table in disguise — of the four water-level combinations (0,0 / 0,1 / 1,0 / 1,1), exactly ONE should open the gate: A=1 AND B=1. OR is way too generous — one sensor high and it opens, flooding the mold. NOT is even worse: it only looks at A and ignores B entirely.',
       '用到这题上: 检修牌其实就是一张藏起来的真值表——四种水位组合(0,0 / 0,1 / 1,0 / 1,1)里, 只有<b>一种</b>该开闸: A=1 且 B=1。OR 太宽容——A、B 有一个高就放, 会淹了铸模; NOT 更离谱, 它只看 A 一个, 完全不管 B。'),
-    B('Answer: flip the slot to <b>AND</b>. An AND gate outputs 1 only when A=1 <i>and</i> B=1 — "both high or no water" is literally AND\'s truth table. Flip it, then hit Run Validation.',
-      '答案: 把插槽切到 <b>AND</b>。AND 门只有 A=1 且 B=1 才输出 1——「两个都高才放水」就是 AND 的真值表。切好后点「校验协议」。')
+    B('Worked example — <b>different problem, not this sluice</b>. Say a fire bell must ring when EITHER smoke sensor S OR heat sensor H reads high. Turn the sentence into a 4-row table: S=0,H=0→0; 0,1→1; 1,0→1; 1,1→1. The word "either/or" names the gate, and the table nails it down: this one is OR. That is the whole recipe — (1) read the spec sentence, (2) write its 4-row truth table, (3) pick the gate whose table matches every row. Now run that exact recipe on your own sluice: its sentence is "both high, or no water", so write ITS four rows and find which single gate matches — that gate goes in the slot.',
+      '例子·换了题面(<b>不是这道水闸</b>): 假设一个火警铃, 只要烟雾传感器 S <b>或</b>热传感器 H 有一个到高位就要响。把这句话变成四行表: S=0,H=0→0; 0,1→1; 1,0→1; 1,1→1。「或」字点出了门的名字, 表格再把它钉死: 这个是 OR。这就是全套配方——(1) 读题面那句话, (2) 写出它的四行真值表, (3) 挑出每一行都对上的那个门。现在把同一套配方用到你自己的水闸上: 它的题面是「两个都高才放水」, 把它的四行写出来, 找出唯一对得上的那个门, 装进插槽。')
   ]);
 }
 
@@ -302,32 +329,32 @@ var HINTS_XOR_R1=[
     '复习一下: 每个门的脾气——AND 要两个都高; OR 一个高就满足; NOT 只吃一个输入, 原样翻过来; XOR 只有两个输入不一样才响。真值表就是门的身份证——表读对了, 门自己就报出名字了。'),
   B('Apply it here: the mold\'s pattern reads 0,1,1,1 (only A=0,B=0 gives 0; everything else gives 1). NOT only ever looks at A, so it can\'t depend on B the way this table clearly does — rule it out. XOR would have to give 0 at A=1,B=1, but this table gives 1 there — rule it out too. AND gives 0 everywhere except A=1,B=1 — the opposite shape. One gate is left.',
     '用到这题上: 铸模上的图样是 0,1,1,1(只有 A=0,B=0 是 0, 其余全是 1)。NOT 永远只看 A, 没法像这张表一样跟着 B 变——排除。XOR 在 A=1,B=1 时该是 0, 可这张表那一行是 1——也排除。AND 除了 A=1,B=1 全是 0, 形状完全反过来——也不对。剩下一个门了。'),
-  B('Answer: it\'s <b>OR</b> — at least one input high is already enough. Select it and the confirm button lights up once every row matches.',
-    '答案是 <b>OR</b>——只要有一个输入是高的就够了。选中它, 四行全对上后确认按钮会亮起来。')
+  B('Worked example — <b>a different pattern, not the mold\'s</b>. Suppose a table reads 0,0,0,1 (only A=1,B=1 gives 1). Test each candidate on ALL four rows, not just one: NOT never looks at B, so it fails the moment B changes — out. OR gives 1 at A=0,B=1, but this pattern wants 0 there — out. XOR gives 0 at A=1,B=1, but this pattern wants 1 there — out. AND matches every single row → it\'s AND. That is the method: don\'t eyeball one row, run each gate against all four and keep the one that survives. Now apply the same four-row elimination to the mold\'s actual pattern and see which single gate survives it.',
+    '例子·换了题面(<b>不是铸模那张图样</b>): 假设一张表是 0,0,0,1(只有 A=1,B=1 才是 1)。逐个候选门在<b>全部四行</b>上试, 而不是只看一行: NOT 永远不看 B, B 一变它就错——排除; OR 在 A=0,B=1 时给 1, 可这张图样那行要 0——排除; XOR 在 A=1,B=1 时给 0, 可这张图样那行要 1——排除; AND 每一行都对上 → 就是 AND。方法就在这: 别只盯一行, 让每个门都跑满四行, 留下活到最后的那个。现在把这套四行淘汰法用到铸模真正的图样上, 看哪一个门活下来。')
 ];
 var HINTS_XOR_R2=[
   B('Recap — XOR is really two statements stitched together: "at least one is 1" AND "but not both are 1". The skeleton has already welded that structure in: a top branch, a bottom branch (with its inverter ring already seated), and a merge gate.',
     '复习一下: XOR 拆开看其实是两句话拼成一句: "至少有一个是 1" 并且 "但不能两个都是 1"。骨架已经把这个结构焊死了: 上支路、下支路(反相环已经装好)、还有一个汇合门。'),
   B('Apply it here: the top branch has no ring, so whatever gate you put there IS the final statement it contributes — which gate means "at least one is 1"? The bottom branch already carries a ring, meaning its raw result gets flipped afterward — so before flipping, what should the raw result mean? ("both are 1", so that flipping it gives "NOT both are 1"). The merge gate needs both branches\' conclusions to hold at once — which gate is that?',
     '用到这题上: 上支路没有环, 你选的门就直接是它贡献的那句话——哪个门的意思是"至少有一个是 1"? 下支路已经带着环, 说明它的原始结果之后会被翻转——那翻转前, 原始结果该表示什么?("两个都是 1", 这样翻过来才是"不是两个都 1")。汇合门要让两条支路的结论同时成立——那是哪个门?'),
-  B('Answer: top branch <b>OR</b>, bottom branch <b>AND</b> (its ring turns the result into "not both 1"), merge gate <b>AND</b>. All three slots chosen and the table green means: (A OR B) AND NOT(A AND B) = XOR.',
-    '答案: 上支路 <b>OR</b>, 下支路 <b>AND</b>(它的环把结果变成"不是两个都 1"), 汇合门 <b>AND</b>。三个插槽都选好、表格全绿, 就是 (A OR B) AND NOT(A AND B) = XOR。')
+  B('Worked example on <b>this exact skeleton but a different target</b> — build XNOR ("same → 1", column 1,0,0,1). Top branch (no ring): you want a statement that\'s true only when both are 1, so put <b>AND</b> there → column 0,0,0,1. Bottom branch (ring flips it): you want the flipped result to mean "neither is 1", so before the flip you want "at least one is 1" = <b>OR</b>, and the ring turns 0,1,1,1 into 1,0,0,0. Merge: XNOR is true when EITHER branch is true, so merge with <b>OR</b> → 0001 OR 1000 = 1,0,0,1 = XNOR. Trace it row by row to convince yourself. Your target is different (XOR), so the three gates you pick will be different too — but derive them the same way: name each branch\'s required column first, then fit the gate.',
+    '例子·换了题面(<b>骨架一模一样, 只换目标</b>): 用它搭出 XNOR("相同则 1", 列 1,0,0,1)。上支路(无环): 想要一句"两个都是 1 才成立", 放 <b>AND</b> → 列 0,0,0,1。下支路(有环, 会被翻转): 想让翻转后的结果表示"一个 1 都没有", 那翻转前该是"至少有一个是 1" = <b>OR</b>, 环把 0,1,1,1 翻成 1,0,0,0。汇合: XNOR 只要两支路有一支成立就成立, 用 <b>OR</b> 汇合 → 0001 OR 1000 = 1,0,0,1 = XNOR。逐行核一遍就信了。你的目标不一样(是 XOR), 所以你选的三个门也会不一样——但推导方式一样: 先说出每条支路需要的那一列, 再把门配上去。')
 ];
 var HINTS_XOR_R3=[
   B('Recap — same formula as last round: (A OR B) AND NOT(A AND B). This time every socket starts blank except one ring, reinstalled "from memory." Memory isn\'t proof — your own table is the only thing that gets to say a slot is correct.',
     '复习一下: 还是上一轮那条公式: (A OR B) AND NOT(A AND B)。这次插槽全是空的, 只有一个环是"凭记忆"预先装回去的。记忆不是证据——只有你自己的表格才有资格说一个插槽是对的。'),
   B('Apply it here: fill the three gates the way you just learned — top OR, bottom AND, merge AND. Once they\'re in, look at which rows are still red. If every red row involves A=1,B=1, the "both are 1" signal isn\'t getting flipped where it should — check the ring on the bottom branch specifically.',
     '用到这题上: 先按刚学到的样子把三个门填上——上 OR、下 AND、汇合 AND。填完看看哪几行还是红的。如果红的行都跟 A=1,B=1 有关, 说明"两个都是 1"这个信号该翻转的地方没翻转——重点查一下下支路那个环。'),
-  B('Answer: gates are OR / AND / AND, and the preset ring is wrong — it needs to be <b>attached (N)</b>, not the empty ○ it started as. Fix all four, and the pour succeeds.',
-    '答案: 三个门是 OR / AND / AND, 那个预装的环是错的——它该是<b>装上(N)</b>, 而不是一开始那个空的 ○。全部改对, 浇铸就会成功。')
+  B('Worked example of <b>catching a bad preset ring</b> — different target, XNOR. Suppose someone half-built XNOR = (A AND B) OR NOT(A OR B) but reinstalled the bottom ring OFF, so that branch read plain OR (0,1,1,1) instead of NOR (1,0,0,0). Symptom: compare your column to target row by row — at A=0,B=0 the circuit gives 0 but XNOR wants 1; the red row points straight at the branch feeding that case. Flip that branch\'s ring ON, re-check: now every row matches. Lesson: don\'t decide the ring from memory — let the red rows tell you which ring is wrong, then toggle exactly that one. Now run the same red-row diagnosis on your own board.',
+    '例子·换了题面(<b>怎么抓出装错的预装环</b>, 换成 XNOR): 假设有人把 XNOR = (A AND B) OR NOT(A OR B) 搭到一半, 却把下支路的环装成了 OFF, 于是那条支路读成了普通的 OR(0,1,1,1)而不是 NOR(1,0,0,0)。症状: 把你的列和目标逐行比——A=0,B=0 时电路给 0, 可 XNOR 要 1; 那行红字直接指向喂它的那条支路。把那条支路的环拨成 ON, 再核一遍: 每一行都对上了。教训: 别凭记忆判环——让红行告诉你哪个环错了, 再精准地拨那一个。现在把同一套"看红行"的诊断法用到你自己的板子上。')
 ];
 var HINTS_XOR_CHALLENGE=[
   B('Recap — XOR\'s whole temperament: <b>same input → 0, different input → 1</b>. It isn\'t a gate you\'re handed directly; on real circuits it\'s always built by combining AND, OR, and NOT. (📖 See "XOR" in the Codex for the full write-up.)',
     '复习一下: XOR 的全部脾气就是<b>相同则 0, 相异则 1</b>。它不是直接给你的门——在真实电路里, 它永远是用 AND、OR、NOT 拼出来的。(📖 完整讲解见图鉴里的「XOR」条目。)'),
   B('Apply it here: look at the target column, 0,1,1,0 — the key only conducts when A and B disagree. Split that into two statements: ① "at least one is 1" (a gate that\'s born for exactly this); ② "but not both 1" (catch "both are 1" first, then negate it with an inverter ring/NOT). Finally, merge ①② with one more gate — both conditions must hold at once.',
     '用到这题上: 看目标列 0,1,1,0——只有 A、B 不一样时钥匙才导通。把它拆成两句话: ① 「至少有一个是 1」(某个门天生就管这个); ② 「但不能两个都是 1」(先抓出"两个都是 1", 再用反相环 NOT 否定它)。最后把 ①② 用一个门"并案"——两个条件都要满足。'),
-  B('Answer: top gate <b>OR</b> (no N), bottom gate <b>AND</b> with an <b>N attached right after it</b>, merge gate <b>AND</b> (output, no N). That is, (A OR B) AND NOT(A AND B) = XOR. Once all four rows are green, hit "Cast."',
-    '答案: 上门 <b>OR</b>(不装 N), 下门 <b>AND</b> 且在它后面<b>装上反相环 N</b>, 汇合门 <b>AND</b>(输出不装 N)。即 (A OR B) AND NOT(A AND B) = XOR。表格四行全绿后点「浇铸」。')
+  B('Fully worked example — <b>a different target, XNOR</b> ("same → 1", column 1,0,0,1) — built from a blank slate the same way you\'ll build yours. Split the target into two statements: ① "both are 1" and ② "neither is 1"; XNOR is true when ① OR ② holds. Build ①: top gate <b>AND</b>, no ring → 0,0,0,1. Build ②: "neither is 1" = NOT(at least one is 1), so bottom gate <b>OR</b> with a ring <b>N</b> after it → NOT(0,1,1,1) = 1,0,0,0. Merge with <b>OR</b> (both statements are alternatives): 0001 OR 1000 = 1,0,0,1 = XNOR ✓. Now do the identical procedure for YOUR target column 0,1,1,0: split it into two plain-language statements, build each branch, choose the merge gate that combines them — then read the live table to confirm all four rows go green before you Cast.',
+    '完整例子·换了题面(<b>不同目标, XNOR</b>, "相同则 1", 列 1,0,0,1)——从空槽起手, 搭法跟你要搭的一样。把目标拆成两句话: ① "两个都是 1" 和 ② "一个 1 都没有"; XNOR 在 ① 或 ② 成立时为真。搭 ①: 上门 <b>AND</b>, 不装环 → 0,0,0,1。搭 ②: "一个都没有" = NOT(至少有一个), 所以下门 <b>OR</b> 后面装一个环 <b>N</b> → NOT(0,1,1,1) = 1,0,0,0。用 <b>OR</b> 汇合(两句话是并列备选): 0001 OR 1000 = 1,0,0,1 = XNOR ✓。现在对<b>你自己</b>的目标列 0,1,1,0 做一模一样的流程: 拆成两句人话、各搭一条支路、选一个把它们合起来的汇合门——再看实时表格四行全绿, 才点「浇铸」。')
 ];
 
 function renderXor(el,api){
@@ -774,8 +801,8 @@ function renderHalf(el,api){
       '复习一下: 半加器就是「一位二进制加法」: 把 A + B 相加, 给出两个答案, <b>SUM</b>(本位结果)与 <b>CARRY</b>(进位, 溢出到下一位)——就像手算 5+5 时写 0 进 1 那样。(📖 完整讲解见图鉴里的「Half Adder」条目。)'),
     B('Apply it here: work out the four rows by hand — 0+0, 0+1, 1+0, 1+1 — and write down each row\'s SUM and CARRY. The SUM column comes out 0,1,1,0 — <b>same is 0, different is 1</b>, the same temperament as the gate you just forged at the mold. The CARRY column comes out 0,0,0,1 — <b>only carries when both are 1</b>, a temperament you\'ve also met at the sluice.',
       '用到这题上: 手算四行——0+0, 0+1, 1+0, 1+1——把每行的 SUM 和 CARRY 写出来。SUM 列是 0,1,1,0——<b>相同则 0、相异则 1</b>, 你刚在铸模里锻过这个脾气的门。CARRY 列是 0,0,0,1——<b>只有两个都是 1 才进位</b>, 你在水闸上也见过它。'),
-    B('Answer: put <b>XOR</b> on the SUM rail (that\'s your XOR key) and <b>AND</b> on the CARRY rail. Once all four rows are green, hit "Forge."',
-      '答案: SUM 轨放 <b>XOR</b>(就是你的异或密钥), CARRY 轨放 <b>AND</b>。四行全绿后点「锻造」。')
+    B('Worked example — <b>a different two-rail machine, not this anvil</b>. Picture a two-lamp panel: lamp P lights when AT LEAST ONE switch is on; lamp Q lights only when NEITHER is on. Treat each rail as its own separate gate-hunt. Rail P: write its column from the sentence → 0,1,1,1; that column IS the OR gate. Rail Q: its column → 1,0,0,0; that\'s NOR (an OR with its output flipped). The method: for EACH output rail independently, (1) write that one rail\'s 4-row column straight from its description, (2) name the gate whose truth table equals that column. Now run this twice on the anvil — once on the SUM column you worked out by hand, once on the CARRY column — and fit each rail\'s matching gate.',
+      '例子·换了题面(<b>另一台双轨机器, 不是这座铁砧</b>): 想象一块双灯面板: 灯 P 只要有一个开关合上就亮; 灯 Q 只有两个都断开才亮。把每条轨当成一次独立的"找门"。轨 P: 照句子写出它的列 → 0,1,1,1; 这列就是 OR 门。轨 Q: 它的列 → 1,0,0,0; 这是 NOR(把 OR 的输出翻过来)。方法: 对<b>每一条</b>输出轨单独地——(1) 照它的描述写出那一条轨的四行列, (2) 找出真值表正好等于这列的门。现在在铁砧上做两遍: 一遍针对你手算出来的 SUM 列, 一遍针对 CARRY 列——给每条轨配上对得上的那个门。')
   ]);
 }
 
@@ -822,6 +849,7 @@ function smithDialog(api){
       ),next:-1}
     ];
     nodes.onEnd=function(){SET(api,'lg_met_smith');STEP(api,'lg_m1');};
+    nodes.sig='intro';   // 首见。sig 反映会话状态, 不随 fixed 里的 loop #n 抖动, 才不会误亮 ❕
     return nodes;
   }
 
@@ -851,18 +879,21 @@ function smithDialog(api){
       ),next:-1}
     ];
     nodes.onEnd=function(){SET(api,'lg_truth');STEP(api,'lg_s2');};
+    nodes.sig='secret';   // 泄密态: 只此一段, sig 稳定
     return nodes;
   }
 
   if(!FLAG(api,'lg_sluice_done')){
-    return [fixed,
+    nodes=[fixed,
       {sp:SP,t:B(
         'Sluice is still leaking. <span class="k">Both high, or no water</span> — of that truth table in §2 of the manual, only one column has that temperament. Go on.',
         '水闸还漏着。<span class="k">两个都高才放水</span>——手册 §2 那张真值表里, 只有一列是这个脾气。去吧。'
       ),next:-1}];
+    nodes.sig='need_sluice';
+    return nodes;
   }
   if(!FLAG(api,'lg_xor_done')&&!HAS(api,'xor_key')){
-    return [fixed,
+    nodes=[fixed,
       {sp:SP,t:B(
         'Cooling\'s online, not bad hands. Next: the truth-table mold in the center. Forge yourself an <span class="k">XOR key</span> off that table — '+
         'remember its temperament: <span class="k">same runs cold, different runs hot</span>.',
@@ -875,9 +906,11 @@ function smithDialog(api){
         '锻不出来就想想我: <span class="k">NAND 是万能的</span>。OR 管「有没有」, AND 管「全不全」, '+
         'NOT 管「反着说」——三个凑一桌, 就是 XOR。'
       ),next:-1}];
+    nodes.sig='need_xor';
+    return nodes;
   }
   if(!FLAG(api,'lg_half_done')){
-    return [fixed,
+    nodes=[fixed,
       {sp:SP,t:B(
         'Key burning a hole in your pocket? Then get on the anvil. SUM and CARRY — the entire secret of one-bit addition, told in just two gates. '+
         'Forge the <span class="k">Carry Ember</span>, and it\'ll light your way from here.',
@@ -894,6 +927,8 @@ function smithDialog(api){
         '<span class="dim">留神第一粒火星。故事往往就是从那儿开始的。</span><br>'+
         '<span class="dim">……我也判过一粒火星。替造出这地方的那个人。他问我: 一样东西要是会数数、还会记得, 算不算活到了值得留下的地步。我盯着炉火, 说: 算。他揣着这个「算」下去, 修了最深的那几层——就在那天, 我炉上有一道门只铸到一半。我一直没舍得拆回去。落锤吧, 孩子。把我那次判决, 锤得再对一点。</span>'
       ),next:-1}];
+    nodes.sig='need_half';
+    return nodes;
   }
   /* 全部完成 */
   nodes=[fixed,
@@ -909,6 +944,7 @@ function smithDialog(api){
       '……我锻过的东西里, 只有一样不是门: <span class="k">一扇窗</span>。主循环崩溃那晚, 有人隔着它看了我一眼, 然后按下了回车。'+
       '<span class="dim">那个人的登录名, 和你的很像。</span>'
     ),next:-1}];
+  nodes.sig='done';
   return nodes;
 }
 
@@ -925,7 +961,9 @@ function kidDialog(api){
     var lineZh=ending==='truth'?'我在练习自己给自己 wait()。……有点难。返回值总是「想他」。但我在练。'
       :ending==='lie'?'等我长大, 要造一台能看到很远很远机房的望远镜! 到时候第一个给你看!'
       :'恩人! 今天回收者从门口过, 它扫了我一眼, 然后<span class="k">跳过了我</span>!它真的跳过了我!……引用原来是这个温度。';
-    return [{sp:SP,t:B(lineEn,lineZh),next:-1}];
+    nodes=[{sp:SP,t:B(lineEn,lineZh),next:-1}];
+    nodes.sig='end_'+ending;   // 结局态: 每种结局各自稳定
+    return nodes;
   }
 
   if(!FLAG(api,'lg_kid_met')){
@@ -959,14 +997,17 @@ function kidDialog(api){
         '……嗯。大家都很忙。爸爸也是因为忙。<span class="dim">(它把电路板抱得更紧了)</span>'
       ),next:-1}
     ];
+    nodes.sig='intro';
     return nodes;
   }
 
   if(!FLAG(api,'lg_truth')){
-    return [{sp:SP,t:B(
+    nodes=[{sp:SP,t:B(
       'Did you ask? <span class="k">PID 1024</span>. I can say it again for you. ...It\'s the only thing I still remember by heart.',
       '问到了吗? <span class="k">PID 1024</span>。我可以再背一遍。……我只剩这个能背了。'
     ),next:-1}];
+    nodes.sig='waiting';
+    return nodes;
   }
 
   /* 揭晓与选择 */
@@ -1015,6 +1056,7 @@ function kidDialog(api){
       '爸——不对, 恩人! 我以后帮你拿锤子! 我跑得可快了, 上下文切换都追不上我!'
     ),next:-1}
   ];
+  nodes.sig='reveal';
   return nodes;
 }
 
@@ -1198,7 +1240,7 @@ var MOD={
 
   /* 纯逻辑判定导出 —— 供 node 单测(引擎请忽略) */
   _test:{GATES:GATES,NOT:NOT,COMBOS:COMBOS,
-         sluiceOutput:sluiceOutput,sluiceCheck:sluiceCheck,
+         sluiceOutput:sluiceOutput,sluiceCheck:sluiceCheck,sluiceStatus:sluiceStatus,
          xorEval:xorEval,xorCheck:xorCheck,
          xorR1Check:xorR1Check,xorR2Check:xorR2Check,
          halfEval:halfEval,halfCheck:halfCheck}
