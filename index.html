@@ -1118,8 +1118,10 @@ $('modalOk').onclick=closeModal;
 const PIDS={'回声':'PID 0x2A','Echo':'PID 0x2A','进制商人':'PID 16','Radix Merchant':'PID 16',
   '老哨兵':'PID 1','Old Sentinel':'PID 1','你':'USER','You':'USER','？？？':'SIG?','???':'SIG?'};
 let dlg=null;
+let curTalkNpc=null;   // 本次对话的发起 NPC {n,isMod,iid} — 对话结束后按最新 flag 重记「已听过」, 气泡才会熄灭
 function startDialog(nodes,onEnd){
   if(!nodes||!nodes.length)return;
+  curTalkNpc=null;     // 演出/系统对话不携带 NPC; NPC 对话在调用 startDialog 之后再登记
   dlg={nodes,i:0,onEnd:onEnd||null};
   $('dlgP').style.display='block';setMode('dialog');renderDialog();
 }
@@ -1188,6 +1190,21 @@ function endDialog(){
   $('dlgP').style.display='none';
   const cb=dlg&&dlg.onEnd;dlg=null;setMode('play');
   if(cb)cb();
+  // 对话彻底结束(未被 onEnd 链式接续)后重记签名: 对话中推进了任务/flag 导致开场白变化时, ❕ 在此正确熄灭
+  if(!dlg&&curTalkNpc){
+    try{
+      const c=curTalkNpc;
+      if(c.isMod){
+        if(state.interior===c.iid){
+          delete npcSigCache['m_'+c.iid+'_'+c.n.id];
+          state.flags['heard_m_'+c.iid+'_'+c.n.id]=modNpcSig(c.n);
+        }
+      }else{
+        state.flags['heard_'+c.n.id]=engineNpcSig(c.n);
+      }
+    }catch(e){}
+    curTalkNpc=null;
+  }
 }
 
 /* ---------------- 16. 演出系统 api.scene ----------------
@@ -2164,11 +2181,12 @@ function modNpcTalk(n){
   let nodes=null;
   try{nodes=(typeof n.dialog==='function')?n.dialog(api):n.dialog;}catch(e){window.onerror('dialog '+n.id+': '+e,'',0);return;}
   if(!nodes||!nodes.length)return;
-  try{ // 记「已听过」签名: 直接用本次拿到的首节点, 不再重调 dialog()
+  try{ // 记「已听过」签名: 直接用本次拿到的首节点, 不再重调 dialog() (兜底; 对话结束后 endDialog 会按最新 flag 重记)
     state.flags['heard_m_'+state.interior+'_'+n.id]=String(TT(nodes[0].t||'')).replace(/<[^>]*>/g,'').slice(0,60);
     delete npcSigCache['m_'+state.interior+'_'+n.id];
   }catch(e){}
   startDialog(nodes,nodes.onEnd||null);
+  if(dlg)curTalkNpc={n,isMod:true,iid:state.interior};
 }
 
 /* ---------------- 13c. 网络周边: 提示上报 · 匿名统计 · 教师章节闸门 · 维护者的信 ----------------
@@ -2678,10 +2696,11 @@ function drawTalkBubble(cx,cy,t){
 /* --- 引擎 NPC 对话 (第一幕) --- */
 function npcTalk(n){
   npcMarkHeard(n,false);
-  if(n.id==='echo')return echoTalk();
-  if(n.id==='hex')return hexTalk();
-  if(n.id==='sent')return sentTalk();
-  if(n.id==='remn')return remnTalk();
+  if(n.id==='echo')echoTalk();
+  else if(n.id==='hex')hexTalk();
+  else if(n.id==='sent')sentTalk();
+  else if(n.id==='remn')remnTalk();
+  if(dlg)curTalkNpc={n,isMod:false,iid:null};
 }
 function echoTalk(){
   if(state.tut<=2){
