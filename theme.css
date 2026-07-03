@@ -1,0 +1,304 @@
+/* ================================================================
+   BIT://ESCAPE — theme.css 「机器花园」UI 皮肤 (art v3.1)
+   ----------------------------------------------------------------
+   挂法: 在 index.html 内联 </style> 之后加
+         <link rel="stylesheet" href="theme.css">
+   世界切换: document.body.classList.toggle('world-a2', 在A2世界)
+             (也可给任意容器加 .world-a2, 其内部 UI 整体换色)
+   设计语言: 星穹铁道气质 —— 深蓝灰玻璃拟态面板 + 细金/青描边 +
+   高级灰正文 + 局部霓虹点缀。克制、利落。无扫描线/CRT/暗角/色散。
+   AS = 深蓝灰玻璃+青金 / A2 = 深紫夜+灯火金。
+   所有颜色只从下方变量派生。
+   ----------------------------------------------------------------
+   ⚠ 动效纪律: 面板入场动画只允许 opacity/scale —— 绝不能碰
+   transform/left/top(面板靠 translate 定位, 动画覆盖 transform 会
+   导致"先出现在右边再跳回中间"的闪跳 bug)。transition 一律写明确
+   属性列表, 禁止 transition:all。
+   ================================================================ */
+
+:root, .world-as{
+  /* CJK 回落必须给现代黑体, 否则中文在小字号糊成点阵(如「铸」) */
+  --font:'Cascadia Code','JetBrains Mono',Consolas,'Microsoft YaHei','PingFang SC','Noto Sans SC','Courier New',monospace;
+  --bg0:#10151d;                      /* 画布外底(深板岩) */
+  --bg1:#171e29; --bg2:#1f2836;      /* 面板内层次 */
+  --line:#3b475a;                     /* 细描边(冷灰蓝) */
+  --line-hi:rgba(63,212,196,.35);     /* 青描边(局部) */
+  --gold:#d8b36a;                     /* 细金(标题/重点) */
+  --cyan:#3fd4c4;                     /* 霓虹青(点缀/交互) */
+  --ink:#cdd6e0;                      /* 高级灰正文 */
+  --ink-dim:#76839a;                  /* 次要文字 */
+  --acc:#ffb454;                      /* 暖金橙(强调/线索) */
+  --acc2:#ff6363;                     /* 警示红 */
+  --glow:rgba(63,212,196,.25);
+  --glow-soft:rgba(63,212,196,.10);
+  --hi-08:rgba(63,212,196,.08);
+  --hi-15:rgba(63,212,196,.15);
+  --panel-bg:rgba(18,24,33,.90);      /* 深蓝灰玻璃 */
+  --panel-bg2:rgba(26,34,46,.92);
+  --btn-ink:#0f141b;                  /* 按钮填充后的深字 */
+  --shadow:0 8px 28px rgba(4,8,14,.55);
+  /* 旧变量别名(防漏网引用) */
+  --hi:var(--cyan); --hi2:#eaf6f8; --mid:var(--gold); --dim:var(--line);
+}
+.world-a2{
+  --bg0:#191731;
+  --bg1:#201d3d; --bg2:#2a2650;
+  --line:#4a4578;
+  --line-hi:rgba(255,207,110,.35);
+  --gold:#ffd98a;                     /* 灯火金 */
+  --cyan:#8fb8ff;                     /* 星光蓝 */
+  --ink:#ddd8ee;
+  --ink-dim:#8d86b8;
+  --acc:#ff9e58;
+  --acc2:#ff6f9a;
+  --glow:rgba(255,217,138,.25);
+  --glow-soft:rgba(255,217,138,.10);
+  --hi-08:rgba(255,217,138,.08);
+  --hi-15:rgba(255,217,138,.15);
+  --panel-bg:rgba(26,23,50,.90);
+  --panel-bg2:rgba(34,30,62,.92);
+  --btn-ink:#191731;
+  --shadow:0 8px 30px rgba(6,4,20,.6);
+  --hi:var(--gold); --hi2:#fff2d4; --mid:var(--cyan); --dim:var(--line);
+}
+
+/* ---------------- 基底 ---------------- */
+html,body{background:var(--bg0);font-family:var(--font)}
+#game{background:var(--bg0)}
+
+/* CRT 时代结束: 不再有扫描线/暗角覆盖层 */
+#wrap::after{content:none}
+#wrap::before{content:none}
+
+/* ---------------- 动效 (只动 opacity/scale!) ---------------- */
+@keyframes ga-panel-in{from{opacity:0;scale:.985}to{opacity:1;scale:1}}
+@keyframes ga-blink{0%,55%{opacity:1}56%,100%{opacity:.25}}
+
+/* ---------------- HUD 组 ---------------- */
+#hud{
+  background:var(--panel-bg);border:1px solid var(--line);border-left:2px solid var(--gold);
+  border-radius:8px;color:var(--ink);letter-spacing:.4px;
+  box-shadow:var(--shadow);backdrop-filter:blur(3px);
+}
+#hud b{color:var(--gold)}
+#hud .dim{color:var(--ink-dim)!important}
+#hudObj{color:var(--acc)!important}
+
+/* REF 条: 能量池, 圆润利落 */
+#refBar{border:1px solid var(--line)!important;border-radius:99px!important;
+  background:rgba(0,0,0,.35)!important;overflow:hidden;height:8px!important}
+#refFill{background:linear-gradient(90deg,#2fb9a9,#5fe0c8)!important;border-radius:99px}
+#refFill.warn{background:linear-gradient(90deg,#e09a3a,#ffcf6e)!important}
+#refFill.low{background:linear-gradient(90deg,#d4574e,#ff8a7a)!important}
+
+#coord{
+  background:var(--panel-bg);border:1px solid var(--line);border-radius:6px;
+  color:var(--ink-dim);letter-spacing:1px;
+}
+#tip{color:var(--ink);opacity:.95;letter-spacing:.4px;
+  background:var(--panel-bg);border:1px solid var(--line);
+  border-radius:6px;padding:4px 12px;
+  text-shadow:0 1px 2px rgba(0,0,0,.8)}
+
+#prompt{
+  background:var(--panel-bg2);color:var(--cyan);border:1px solid var(--line-hi);
+  border-radius:99px;font-weight:bold;letter-spacing:2px;
+  box-shadow:var(--shadow),0 0 14px var(--glow-soft);
+  padding:6px 22px;backdrop-filter:blur(3px);
+}
+#toast{
+  background:var(--panel-bg2);color:var(--acc);border:1px solid var(--line);
+  border-top:2px solid var(--acc);
+  border-radius:8px;letter-spacing:.4px;box-shadow:var(--shadow);
+  animation:ga-panel-in .14s ease-out;
+}
+
+/* ---------------- 面板系统(深色玻璃) ---------------- */
+.panel{
+  background:var(--panel-bg);border:1px solid var(--line);border-radius:12px;
+  color:var(--ink);font-family:var(--font);
+  box-shadow:var(--shadow),inset 0 1px 0 rgba(255,255,255,.05);
+  backdrop-filter:blur(4px);
+  animation:ga-panel-in .14s ease-out;
+}
+.panel h3{
+  color:var(--gold);border-bottom:1px solid var(--line);
+  letter-spacing:3px;text-transform:uppercase;
+}
+.panel h3::before{content:"◆ ";color:var(--cyan);font-size:.85em}
+/* 右上 [ESC] 提示 (手册/汇编/日志/对话已有各自提示, 只挂简单面板) */
+#binP::after,#modalP::after{
+  content:"[ESC]";position:absolute;top:10px;right:14px;
+  font-size:10px;color:var(--ink-dim);letter-spacing:1px;
+}
+
+.k{color:var(--acc);font-weight:bold}
+.dim{color:var(--ink-dim)}
+
+/* ---------------- 按钮 ---------------- */
+.btn{
+  background:rgba(255,255,255,.03);color:var(--ink);border:1px solid var(--line);
+  border-radius:6px;font-family:var(--font);letter-spacing:1.5px;position:relative;
+  transition:background .14s,color .14s,border-color .14s,box-shadow .14s;
+}
+.btn:hover{background:var(--gold);color:var(--btn-ink);border-color:var(--gold);
+  box-shadow:0 2px 12px rgba(216,179,106,.35)}
+.btn:active{box-shadow:none}
+.btn.warn{color:var(--acc2);border-color:rgba(255,99,99,.5)}
+.btn.warn:hover{background:var(--acc2);color:var(--btn-ink);border-color:var(--acc2);
+  box-shadow:0 2px 12px rgba(255,99,99,.3)}
+
+/* ---------------- 任务日志 (J) ---------------- */
+#journal{border-left:1px solid var(--line)}
+#journal h3 .dim{text-transform:none;letter-spacing:0}
+#journal .sec{
+  color:var(--ink-dim);border-bottom:1px dashed var(--line);
+  letter-spacing:3px;text-transform:uppercase;
+}
+#journal .q{color:var(--ink)}
+#journal .q::before{content:"◇";color:var(--cyan)}
+#journal .q.done{color:var(--ink-dim);text-decoration:line-through}
+#journal .q.done::before{content:"◆";color:var(--gold)}
+#journal .q.hid{color:var(--acc)}
+#journal .q.hid::before{content:"◈";color:var(--acc)}
+#journal .st{color:var(--ink-dim)}
+#journal .st.done::before{color:var(--gold)}
+#journal .clue{
+  background:var(--hi-08);border-left:2px solid var(--acc);border-radius:0 6px 6px 0;
+}
+#journal .clue b{color:var(--acc)}
+#journal .clue code{color:var(--acc)}
+.jtab{border:1px solid var(--line)!important;border-radius:5px;color:var(--ink-dim)!important;
+  background:transparent!important;
+  transition:color .14s,border-color .14s,background .14s}
+.jtab.cur{color:var(--cyan)!important;border-color:var(--line-hi)!important;
+  background:var(--hi-08)!important}
+
+/* ---------------- 手册 (M) ---------------- */
+#mhead{
+  border-bottom:1px solid var(--line);color:var(--gold);
+  letter-spacing:3px;text-transform:uppercase;
+  background:rgba(255,255,255,.025);border-radius:12px 12px 0 0;
+}
+#mbody h4{color:var(--gold);letter-spacing:1px}
+#mbody pre{
+  background:rgba(0,0,0,.30);border:1px solid var(--line);border-left:2px solid var(--cyan);
+  border-radius:0 6px 6px 0;color:var(--ink);
+}
+#mbody .warnbox{border:1px solid rgba(255,180,84,.5);color:var(--acc);
+  background:rgba(255,180,84,.06);border-radius:6px}
+#mbody table{border-collapse:collapse}
+#mbody td,#mbody th{border:1px solid var(--line);color:var(--ink)}
+#mbody th{color:var(--gold);background:rgba(255,255,255,.03);letter-spacing:1px}
+#mfoot{border-top:1px solid var(--line)}
+.dexRow{border:1px solid var(--line)!important;border-radius:6px}
+.dexRow.got{border-color:var(--line-hi)!important;color:var(--ink)!important;
+  background:var(--hi-08)}
+.dexRow.no{color:var(--ink-dim)!important}
+
+/* ---------------- 二进制门 ---------------- */
+.bit{
+  background:rgba(0,0,0,.3);color:var(--ink-dim);border:2px solid var(--line);
+  border-radius:8px;font-family:var(--font);
+  transition:background .12s,color .12s,border-color .12s,box-shadow .12s;
+}
+.bit:hover{border-color:var(--line-hi);color:var(--ink)}
+.bit.on{
+  background:var(--cyan);color:var(--btn-ink);border-color:var(--cyan);
+  box-shadow:0 0 16px var(--glow);
+}
+.bw{color:var(--ink-dim)}
+#binVal{color:var(--acc);letter-spacing:2px;font-weight:bold}
+
+/* ---------------- 汇编终端 ---------------- */
+#asmHead{
+  border-bottom:1px solid var(--line);color:var(--gold);letter-spacing:3px;
+  text-transform:uppercase;background:rgba(255,255,255,.025);border-radius:12px 12px 0 0;
+}
+#asmSrc{
+  background:rgba(0,0,0,.32);color:var(--ink);border:1px solid var(--line);border-radius:6px;
+  font-family:var(--font);caret-color:var(--cyan);
+}
+#asmSrc:focus{border-color:var(--line-hi);box-shadow:0 0 0 2px var(--glow-soft)}
+#asmSrc::selection{background:var(--hi-15);color:var(--hi2)}
+.asmBox{border:1px solid var(--line);background:rgba(255,255,255,.02);border-radius:6px}
+.asmBox b{color:var(--gold);letter-spacing:2px;text-transform:uppercase}
+#asmRegs span{color:var(--acc)}
+#memGrid div{border:1px solid var(--line);color:var(--ink-dim);border-radius:3px}
+#memGrid div.hot{color:var(--acc);border-color:rgba(255,180,84,.55);background:rgba(255,180,84,.06)}
+#asmOut{color:var(--cyan)}
+#asmStatus{color:var(--ink-dim)}
+#asmStatus.err{color:var(--acc2)}
+#asmStatus.win{color:#5fe0c8}
+.world-a2 #asmStatus.win{color:#ffd98a}
+#asmFoot{border-top:1px solid var(--line)}
+
+/* ---------------- 对话框 (深色玻璃底部横条) ---------------- */
+#dlgP{
+  border:1px solid var(--line);border-top:2px solid var(--gold);
+  border-radius:12px;background:var(--panel-bg2);
+  animation:ga-panel-in .14s ease-out;
+}
+#dlgName{
+  display:inline-block;color:var(--gold);letter-spacing:2px;font-weight:bold;
+  background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:6px;
+  padding:2px 14px;margin-bottom:6px;
+}
+#dlgName:empty{display:none}
+/* 进程徽章: 引擎可在名字前塞 <span class="pid">PID 1024</span> */
+#dlgName .pid,.pid{
+  color:var(--btn-ink);background:var(--cyan);padding:0 6px;margin-right:8px;
+  font-size:10px;letter-spacing:1px;border-radius:3px;font-weight:normal;
+}
+#dlgText{color:var(--ink)}
+/* 打字机光标: 打字期间引擎给 #dlgText 加 .type-caret, 打完移除 */
+.type-caret::after{content:"▎";color:var(--cyan);animation:ga-blink .7s steps(1) infinite}
+#dlgHint{color:var(--ink-dim)}
+#dlgChoices button{border-left:2px solid var(--cyan);text-align:left}
+#dlgChoices button:hover{border-left-color:var(--gold)}
+
+/* ---------------- 通用模态 ---------------- */
+#modalP p{color:var(--ink)}
+#modalP code{color:var(--acc)}
+
+/* ---------------- 小地图 ---------------- */
+#mapCv{border:1px solid var(--line)!important;border-radius:6px}
+#mapLegend{color:var(--ink-dim)!important}
+
+/* ---------------- 开场 / 全屏覆盖 ----------------
+   天空渐变与 keyart 由 index.html 的 .overlay 基础样式负责,
+   这里只统一文字与按钮气质(深色玻璃卡片浮在天上)。 */
+.overlay{color:var(--ink)}
+.overlay h1{
+  color:#f2f7fa;letter-spacing:8px;
+  text-shadow:0 0 24px rgba(63,212,196,.55),0 2px 8px rgba(4,10,18,.65);
+}
+.overlay p{
+  color:#cdd6e0;background:rgba(14,20,30,.78);
+  border:1px solid rgba(63,212,196,.22);border-radius:12px;
+  padding:16px 22px;box-shadow:0 8px 28px rgba(4,8,14,.45);
+  backdrop-filter:blur(4px);
+}
+.overlay p .k{color:#ffb454}
+.overlay p .dim{color:#76839a}
+.overlay button{
+  background:rgba(14,20,30,.82);color:#d8b36a;border:1px solid rgba(216,179,106,.55);
+  font-family:var(--font);letter-spacing:3px;border-radius:8px;
+  box-shadow:0 4px 16px rgba(4,8,14,.4);
+  transition:background .15s,color .15s,border-color .15s,box-shadow .15s;
+}
+.overlay button:hover{background:#d8b36a;color:#10151d;border-color:#d8b36a;
+  box-shadow:0 6px 22px rgba(216,179,106,.4)}
+
+/* ---------------- 错误盒 ---------------- */
+#errbox{
+  background:rgba(40,12,16,.94);color:#ffb0a8;border:1px solid var(--acc2);
+  border-radius:8px;font-family:var(--font);
+}
+
+/* ---------------- 滚动条 ---------------- */
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:99px;
+  border:2px solid transparent;background-clip:content-box}
+::-webkit-scrollbar-thumb:hover{background:#4d5b72;background-clip:content-box}
