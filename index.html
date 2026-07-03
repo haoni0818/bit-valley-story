@@ -585,8 +585,7 @@ function setLang(l){
 }
 function toggleLang(){setLang(window.LANG==='en'?'zh':'en');sfx.ui();}
 function refreshLangUI(){
-  $('tip').textContent=TT(L('WASD move · E interact · J journal · I bag · M manual · Tab map · L board · N note · Q scan · H HUD · B music · Esc menu/back',
-                            'WASD 移动 · E 交互 · J 日志 · I 背包 · M 手册/图鉴 · Tab 地图 · L 排行榜 · N 留言 · Q 扫描 · H 隐藏HUD · B 音乐 · Esc 菜单/返回'));
+  renderTip();
   $('modalOk').textContent=TT(L('Back (E)','返回 (E)'));
   $('binClose').textContent=TT(L('Leave (Esc)','离开 (Esc)'));
   $('mtitle').textContent=TT(L('BIT-9618 FIELD MANUAL','BIT-9618 现场维护手册'));
@@ -609,6 +608,60 @@ function refreshLangUI(){
   if(mode==='manual')renderManual();
   if(mode==='map')renderMap();
   if(mode==='dialog'&&dlg)renderDialog();
+}
+
+/* ---------------- 1b. 按键渐进披露 ----------------
+   tip 栏只显示已解锁键; 每解锁一功能给一拍 long toast 小教学;
+   常驻键(WASD/E/Esc/H/B)出生即有; 其余随进度解锁; 未解锁键按下静默(见 keydown)。 */
+const FEATURES={
+  journal:{keys:['j'], t:{en:'◈ New tool: Journal [J] — every task you take on is logged here.',
+                          zh:'◈ 新功能: 日志 [J] —— 你接过的每件事都记在这里。'}},
+  bag:    {keys:['i'], t:{en:'◈ New tool: Inventory [I] — the things you pick up live here.',
+                          zh:'◈ 新功能: 背包 [I] —— 你捡到的东西都放在这里。'}},
+  manual: {keys:['m'], t:{en:'◈ New tool: Field Manual [M] — bits, gates and how to survive. Press M anytime.',
+                          zh:'◈ 新功能: 现场手册 [M] —— 比特、逻辑门与求生要义, 随时按 M 查阅。'}},
+  map:    {keys:['tab','q'], t:{en:'◈ New tools: Map [Tab] and Scan [Q] — chart the valley, and pulse Q to reveal what you can touch.',
+                               zh:'◈ 新功能: 地图 [Tab] 与 扫描 [Q] —— 绘制峡谷, 按 Q 发脉冲找出可交互的东西。'}},
+  social: {keys:['l','n'], t:{en:'◈ Now online: Leaderboard [L] and Notes [N] — you are not the only process in here.',
+                             zh:'◈ 已联机: 排行榜 [L] 与 留言 [N] —— 这里不止你一个进程。'}}
+};
+const ALWAYS_KEYS=new Set(['w','a','s','d','e','h','b','escape',
+  'arrowup','arrowdown','arrowleft','arrowright']);
+function keyUnlocked(k){
+  if(ALWAYS_KEYS.has(k))return true;
+  return !!(state.unlocked&&state.unlocked[k]);
+}
+function unlockFeature(id,silent){
+  const f=FEATURES[id];if(!f)return;
+  if(!state.unlocked)state.unlocked={};
+  const fresh=f.keys.some(k=>!state.unlocked[k]);
+  f.keys.forEach(k=>state.unlocked[k]=true);
+  if(!fresh)return;
+  renderTip();
+  if(!silent){toast(L(f.t.en,f.t.zh),true);save();}
+}
+/* 老存档: 按已有进度反推解锁集(静默, 不惩罚老玩家、不刷屏) */
+function inferUnlocks(){
+  if(!state.unlocked)state.unlocked={};
+  if((state.quests&&state.quests.length))unlockFeature('journal',true);
+  if((state.items&&Object.keys(state.items).length)||(state.collected&&state.collected.length))unlockFeature('bag',true);
+  if(state.tut>=4||state.gate||state.asm||state.flags.refIntro)unlockFeature('manual',true);
+  if(state.flags.revealDone||state.flags.mapUnlock||state.ascended){unlockFeature('map',true);unlockFeature('social',true);}
+}
+function renderTip(){
+  const zh=(window.LANG==='zh');
+  const seg=[zh?'WASD 移动 · E 交互':'WASD move · E interact'];
+  if(keyUnlocked('j'))seg.push(zh?'J 日志':'J journal');
+  if(keyUnlocked('i'))seg.push(zh?'I 背包':'I bag');
+  if(keyUnlocked('m'))seg.push(zh?'M 手册/图鉴':'M manual');
+  if(keyUnlocked('tab'))seg.push(zh?'Tab 地图':'Tab map');
+  if(keyUnlocked('q'))seg.push(zh?'Q 扫描':'Q scan');
+  if(keyUnlocked('l'))seg.push(zh?'L 排行榜':'L board');
+  if(keyUnlocked('n'))seg.push(zh?'N 留言':'N note');
+  seg.push(zh?'H 隐藏HUD':'H HUD');
+  seg.push(zh?'B 音乐':'B music');
+  seg.push(zh?'Esc 菜单/返回':'Esc menu/back');
+  const el=$('tip');if(el)el.textContent=seg.join(' · ');
 }
 
 /* ---------------- 2. 存档 v5 (含 v3/v4 迁移) ---------------- */
@@ -637,6 +690,7 @@ const state={
   hudHidden:false,       // H 键 HUD 显隐
   chapSeen:0,            // 已看过的教师解锁章节数 (新章苏醒演出只放一次)
   letters:[],            // 维护者的信 (CO-7, 动态追加)
+  unlocked:{},           // 按键渐进披露: 已解锁的功能键集 (只加字段, 老档 inferUnlocks 反推)
   px:42.5*TILE, py:43*TILE
 };
 const EXP={as:new Set(),a2:new Set()};
@@ -661,6 +715,8 @@ function load(){
     // 逐字段合并(缺省用默认)
     for(const k in state){if(d[k]!==undefined)state[k]=d[k];}
     state.v=5;
+    if(!state.unlocked||typeof state.unlocked!=='object')state.unlocked={};
+    inferUnlocks();
     EXP.as=new Set((state.explored&&state.explored.as)||[]);
     EXP.a2=new Set((state.explored&&state.explored.a2)||[]);
     if(state.interior&&!IMODS[state.interior]){ // 模块没加载成功: 弹回野外
@@ -799,6 +855,8 @@ function genAS(){
   CACHES_AS.forEach(c=>clearAt(m,c.tx,c.ty,1));
   MAILBOXES.forEach(b=>clearAt(m,b.tx,b.ty,1));
   KDOORS.forEach(k=>clearAt(m,k.tx,k.ty,1));
+  // 峡谷保护区: 所有 clearAt/carve 之后重盖周界与内墙 → 防新增建筑(dev/ethics/缓存)凿穿
+  sealCanyon(m);
   // 峡谷内清空只许在房间里发生过 → 重新钉门
   GATE.forEach(g=>{if(!state.gate)m[g.y][g.x]=6;});
   DOOR2.forEach(g=>{if(!state.asm)m[g.y][g.x]=6;});
@@ -806,6 +864,25 @@ function genAS(){
   if(state.asm)DOOR2.forEach(g=>m[g.y][g.x]=4);
   // 接力门: 已开(本机见过 open)→ 路; 否则锁
   RELAY_DOORS.forEach(d=>{m[d.ty][d.tx]=state.flags['relay_open_'+d.id]?4:6;});
+  invalidateTerrainCache();   // 墙体改动后必须失效静态地形缓存, 否则改动不显示
+}
+/* 峡谷保护区盖章: 只保留设计出口(二进制门 GATE / 终门 DOOR2 / 顶部 y12 走廊: 西坡道→揭幕高地→东干线)。
+   合法可走区之外的峡谷格全部盖回山墙 2 → 任何 POI 引路/清地都凿不穿出生峡谷。 */
+function sealCanyon(m){
+  const ALLOW=[
+    [40,40,48,45],[48,42,59,44],[50,45,55,47],[56,37,61,44],[56,30,59,35], // 出生室/走廊A/口袋A/弯厅A/走廊B
+    [44,28,59,32],[52,22,55,28],[46,17,62,22],[52,13,55,15],[46,10,62,13], // 弯厅B/走廊C/前庭/终门走廊(不含门排y16)/揭幕高地
+    [42,43,58,43],[57,31,57,42],[52,31,57,31],[53,22,53,30],[53,17,53,21],  // 地面雕线(引路)
+    [53,13,53,16],[36,12,70,12]   // 终门竖线 + 顶部 y12 走廊(西坡道/东干线, 均在双门之后)
+  ];
+  const DOORTILE=new Set(GATE.concat(DOOR2).map(g=>g.x+','+g.y));  // 门格交由后续开门逻辑定值
+  for(let y=CANYON.y0;y<=CANYON.y1;y++)for(let x=CANYON.x0;x<=CANYON.x1;x++){
+    if(!(m[y]&&m[y][x]!=null))continue;
+    if(DOORTILE.has(x+','+y)||m[y][x]===6)continue;
+    let ok=false;
+    for(const r of ALLOW){if(x>=r[0]&&x<=r[2]&&y>=r[1]&&y<=r[3]){ok=true;break;}}
+    if(!ok)m[y][x]=2;
+  }
 }
 function openRelayTiles(id){
   const d=RELAY_DOORS.find(x=>x.id===id);
@@ -852,7 +929,7 @@ const REALMS_AS=[
    lock:L('A carved line at the mouth of the cave: "WKLV LV QRW WKH HQG". Whatever answers from inside speaks from much deeper in the system.',
           '洞口刻着一行被替换过的字母: "WKLV LV QRW WKH HQG"。洞里传来的回答, 来自系统更深处。')},
   {id:'osr',   mod:'sys', art:'os',    tx:30,ty:36,name:L('The Babel Tower','巴别塔'),topic:L('§5 System Software','§5 系统软件')},
-  {id:'dev',   mod:'dev', art:'algo',  tx:44,ty:44,name:L('The Debug Proving Grounds','调试试炼场'),topic:L('§11/12 Programming & Development','§11/12 编程与开发')},
+  {id:'dev',   mod:'dev', art:'algo',  tx:56,ty:40,name:L('The Debug Proving Grounds','调试试炼场'),topic:L('§11/12 Programming & Development','§11/12 编程与开发')},
   {id:'ethics',mod:'ethics',art:'logic',tx:48,ty:50,name:L('The Arbitration Hall','仲裁庭'),topic:L('§7 Ethics & Ownership','§7 伦理与归属')},
   {id:'netr',  art:'net',   tx:6,ty:56,name:L('Lighthouse of the Sea of Nets','网络之海·灯塔'),topic:'2/14 Networks',
    lock:L('The lighthouse keeps sending SYN. No one answers ACK. The reply, when it comes, will come from beneath this world.',
@@ -1002,14 +1079,14 @@ addEventListener('keydown',e=>{
     keys[k]=true;
     if(sceneActive)return;
     if(k==='e')interact();
-    else if(k==='j')toggleJournal();
-    else if(k==='m')openManual();
-    else if(k==='tab')openMap();
-    else if(k==='l')lbOpen();
-    else if(k==='i'){try{if(window.INVENTORY&&INVENTORY.open)INVENTORY.open();}catch(e){}}
+    else if(k==='j'){if(keyUnlocked('j'))toggleJournal();}
+    else if(k==='m'){if(keyUnlocked('m'))openManual();}
+    else if(k==='tab'){if(keyUnlocked('tab'))openMap();}
+    else if(k==='l'){if(keyUnlocked('l'))lbOpen();}
+    else if(k==='i'){if(keyUnlocked('i'))try{if(window.INVENTORY&&INVENTORY.open)INVENTORY.open();}catch(e){}}
     else if(k==='b')toggleMute();
-    else if(k==='n'){try{if(window.SOCIAL&&!state.interior)SOCIAL.leaveNote((player.x/CT)|0,(player.y/CT)|0,state.world);}catch(e){}}
-    else if(k==='q')startPing();
+    else if(k==='n'){if(keyUnlocked('n'))try{if(window.SOCIAL&&!state.interior)SOCIAL.leaveNote((player.x/CT)|0,(player.y/CT)|0,state.world);}catch(e){}}
+    else if(k==='q'){if(keyUnlocked('q'))startPing();}
     else if(k==='h')toggleHud();
     else if(k==='escape'){
       if(state.interior&&state.interior!=='__recycler')leaveInterior();
@@ -1276,6 +1353,7 @@ function questChanged(){
 }
 function addQuest(id,text,type){
   if(state.quests.find(q=>q.id===id))return;
+  unlockFeature('journal');   // 首个任务入账 → 解锁日志 [J]
   state.quests.push({id,text,type,done:false});
   sfx.quest();toast(TT(L('◇ New quest: ','◇ 新任务: '))+TT(text));questChanged();save();
 }
@@ -1977,6 +2055,7 @@ function modQuestComplete(qid){
 /* --- 引擎物品 --- */
 function giveItemEng(id,name){
   if(state.items[id])return;
+  unlockFeature('bag');   // 首次获得道具 → 解锁背包 [I]
   state.items[id]=name||id;
   sfx.pickup();toast(TT(L('◈ Item: ','◈ 获得物品: '))+TT(name||id));
   try{if(window.INVENTORY&&INVENTORY.notify)INVENTORY.notify(id,TT(name||id));}catch(e){}
@@ -3018,7 +3097,10 @@ function revealScene(){
     {say:{name:L('Echo','回声'),text:L('And that tower with the eight chain-locks… that\'s where we end this. One day. Start with <span class="k">Chapter 1, west</span> — or don\'t. Your call, maintainer.',
       '还有那座缠着八道锁链的塔……总有一天, 我们在那里结束这一切。建议从<span class="k">第1章·正西</span>开始——不听建议也行。你说了算, 维护者。')}},
     {panReset:true},
-    {run(){state.flags.mapUnlock=true;toast(L('◈ Mapping process restored — press Tab for the sector map','◈ 绘图进程已恢复 —— 按 Tab 打开区域地图'),true);save();}},
+    {run(){state.flags.mapUnlock=true;save();
+      unlockFeature('map');                          // 揭幕 → 解锁 地图[Tab] + 扫描[Q]
+      setTimeout(()=>unlockFeature('social'),3200);  // 稍后 → 解锁 排行榜[L] + 留言[N]
+    }},
   ]);
 }
 
@@ -3073,7 +3155,7 @@ function tutJournalOpened(){
   }else{
     addQuest('m2',L('Act I · Leave the valley: crack the 4-bit gate (hint: manual p.1, press M)','第一幕·出谷: 解开东侧的 4 位二进制门 (线索: 手册第 1 页, 按 M)'),'main');
   }
-  setTimeout(()=>toast(L('Obtained: BIT-9618 FIELD MANUAL — press M anytime','获得《BIT-9618 维护手册》—— 按 M 随时查阅'),true),1200);
+  unlockFeature('manual');   // 获得手册 → 解锁 [M] (含小教学 toast, 入队顺序在任务 toast 之后)
   save();
 }
 /* ---------------- 18. 小地图 (Tab) ---------------- */
@@ -3862,6 +3944,7 @@ function newGame(){
   state.world='as';state.interior=null;state.retPos=null;
   state.ascended=false;state.a2Unlocked=false;state.playMs=0;
   state.recentEvents=[];state.hudHidden=false;state.chapSeen=0;state.letters=[];
+  state.unlocked={};
   EXP.as.clear();EXP.a2.clear();
   MODLIST.forEach(m=>(m.quests||[]).forEach(q=>{state.mq[q.id]={steps:{},done:false};}));
   genAS();genA2();setContext();
@@ -3942,6 +4025,7 @@ window.ENG={
   set pendingLight(v){pendingLight=v;},
   migrateV3,migrateV4to5,startDialog,endDialog,advanceDialog,chooseDialog,
   get dlg(){return dlg;},currentObjective,openPuzzle,MAN_PAGES,
+  unlockFeature,keyUnlocked,renderTip,inferUnlocks,FEATURES,
   flushable:true
 };
 
@@ -4008,6 +4092,98 @@ window.ENG={
       runLightScene('data');
     }
   }catch(e){window.onerror(String(e),'',0);}
+})();
+
+/* ---- 峡谷密封探针: index.html#canyon → 新档 BFS 洪泛验证出生峡谷是否只有设计出口 ---- */
+(function(){
+  if(!/(^|#|&)canyon\b/.test(location.hash||''))return;
+  function bfs(){
+    // 从出生格在非固体网格(t∉{2山,3水,6门})上洪泛; 返回是否逃出峡谷矩形 + 可达格数
+    const C={x0:36,y0:10,x1:70,y1:48};
+    const sx=(SPAWN.x)|0, sy=(SPAWN.y)|0;
+    const seen=new Set(), st=[[sx,sy]];
+    const solidT=t=>(t===2||t===3||t===6);
+    let outside=false, outSample=null;
+    if(solidT(MAPAS[sy][sx]))return {err:'spawn is solid at '+sx+','+sy};
+    seen.add(sx+','+sy);
+    while(st.length){
+      const [x,y]=st.pop();
+      if(x<C.x0||x>C.x1||y<C.y0||y>C.y1){outside=true;if(!outSample)outSample=x+','+y;}
+      for(const[dx,dy]of[[1,0],[-1,0],[0,1],[0,-1]]){
+        const nx=x+dx,ny=y+dy,k=nx+','+ny;
+        if(nx<0||ny<0||nx>=ASW||ny>=ASH||seen.has(k))continue;
+        if(solidT(MAPAS[ny][nx]))continue;
+        seen.add(k);st.push([nx,ny]);
+      }
+    }
+    return {outside,count:seen.size,outSample};
+  }
+  const rows=[];
+  try{
+    if(hasSave())wipeSave();
+    newGame();if(dlg)endDialog();sceneActive=false;
+    const A=bfs();                                   // 门/终门皆关
+    state.gate=true;openGateTiles();
+    const B=bfs();                                   // 门开, 终门关
+    state.asm=true;openDoor2Tiles();
+    const D=bfs();                                   // 门+终门皆开
+    const passA=A.outside===false, passB=B.outside===false, passD=D.outside===true;
+    rows.push(['A 出生(门关/终门关) 不可出峡谷', passA, JSON.stringify(A)]);
+    rows.push(['B 二进制门开/终门关 仍不可出',   passB, JSON.stringify(B)]);
+    rows.push(['D 门+终门皆开 可出到开放世界',    passD, JSON.stringify(D)]);
+    rows.push(['ALL', passA&&passB&&passD, '']);
+    document.title='CANYON '+((passA&&passB&&passD)?'PASS':'FAIL');
+  }catch(e){rows.push(['EXCEPTION',false,String(e)]);document.title='CANYON ERROR';}
+  const ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;z-index:99999;background:#04060a;color:#cde;'+
+    'font:16px/1.6 Consolas,monospace;padding:24px;white-space:pre-wrap';
+  ov.innerHTML='<div style="font-size:22px;margin-bottom:12px">CANYON SEAL PROBE</div>'+
+    rows.map(r=>'<div style="color:'+(r[1]?'#7CFC00':'#ff5a5a')+'">'+
+      (r[1]?'PASS':'FAIL')+'  '+r[0]+'  <span style="color:#889">'+r[2]+'</span></div>').join('');
+  (function add(){if(document.body)document.body.appendChild(ov);else setTimeout(add,50);})();
+})();
+
+/* ---- 渐进披露 + 开场无错探针: index.html#discl → 新档自动按 E 过对话, 校验解锁序列 ---- */
+(function(){
+  if(!/(^|#|&)discl\b/.test(location.hash||''))return;
+  const errs=[];
+  const oldOnerr=window.onerror;
+  window.onerror=function(m,s,l,c,e){errs.push(String(m));if(oldOnerr)try{oldOnerr(m,s,l,c,e);}catch(_){}};
+  window.addEventListener('error',ev=>{errs.push(String(ev.message||ev.error||ev));});
+  const rows=[];
+  const chk=(name,cond,extra)=>rows.push([name,!!cond,extra||'']);
+  try{
+    if(hasSave())wipeSave();
+    newGame();                                   // → tutStart(): 开场对话 + addQuest('m1')
+    let guard=0;while(dlg&&guard++<20)advanceDialog();   // 自动按 E 过对话
+    sceneActive=false;
+    const tip0=$('tip').textContent;
+    chk('spawn: 日志已解锁(m1 入账)', keyUnlocked('j'));
+    chk('spawn: 背包仍锁',           !keyUnlocked('i'));
+    chk('spawn: 地图/扫描仍锁',       !keyUnlocked('tab')&&!keyUnlocked('q'));
+    chk('spawn: tip 不含 Tab/I',      tip0.indexOf('Tab')<0&&tip0.indexOf(' I ')<0, tip0);
+    giveItemEng('probe_item','Probe Item');       // → 解锁背包
+    chk('拾物后: 背包解锁',           keyUnlocked('i'));
+    state.tut=3;tutJournalOpened();                // → 解锁手册
+    chk('得手册后: 手册解锁',         keyUnlocked('m'));
+    unlockFeature('map');unlockFeature('social');  // 揭幕等价触发
+    chk('揭幕后: 地图/扫描/社交解锁', keyUnlocked('tab')&&keyUnlocked('q')&&keyUnlocked('l')&&keyUnlocked('n'));
+    const tip1=$('tip').textContent;
+    chk('揭幕后 tip 含 Tab/L/N',      tip1.indexOf('Tab')>=0&&tip1.indexOf('L ')>=0&&tip1.indexOf('N ')>=0, tip1);
+    // 老档反推: 造一个 revealDone 老档, 断言 map/social 静默解锁
+    wipeSave();newGame();state.unlocked={};state.flags.revealDone=true;state.tut=4;inferUnlocks();
+    chk('老档反推: revealDone→全键',  keyUnlocked('tab')&&keyUnlocked('l')&&keyUnlocked('m')&&keyUnlocked('j'));
+    chk('开场无 JS 错误',            errs.length===0, errs.join(' | '));
+    rows.push(['ALL',rows.every(r=>r[1]),'']);
+    document.title='DISCL '+(rows.every(r=>r[1])?'PASS':'FAIL');
+  }catch(e){rows.push(['EXCEPTION',false,String(e)]);document.title='DISCL ERROR';}
+  const ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;z-index:99999;background:#04060a;color:#cde;'+
+    'font:15px/1.55 Consolas,monospace;padding:20px;white-space:pre-wrap';
+  ov.innerHTML='<div style="font-size:20px;margin-bottom:10px">KEY DISCLOSURE PROBE</div>'+
+    rows.map(r=>'<div style="color:'+(r[1]?'#7CFC00':'#ff5a5a')+'">'+(r[1]?'PASS':'FAIL')+'  '+r[0]+
+      (r[2]?('  <span style="color:#889">'+String(r[2]).replace(/</g,'&lt;')+'</span>'):'')+'</div>').join('');
+  (function add(){if(document.body)document.body.appendChild(ov);else setTimeout(add,50);})();
 })();
 
 /* ---- 性能探针 (仅 #perf / #perf-nocache 时启用, 正常游玩零开销/零影响) ----
