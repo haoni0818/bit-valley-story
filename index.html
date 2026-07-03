@@ -66,6 +66,7 @@
   #journal .clue{margin:6px 0;padding:6px 8px;background:rgba(30,25,5,.5);border-left:2px solid #c9a24a;font-size:12px}
   #journal .clue b{color:#ffce3a}
   #journal .clue code{color:#ffce3a;font-size:14px}
+  #journal .clue-nest{margin-left:16px;margin-top:3px;border-left:2px solid #6b551f;background:rgba(30,25,5,.32)}
 
   /* --- 手册 (M): 居中态 + 侧挂态 --- */
   #manual{left:50%;top:50%;transform:translate(-50%,-50%);width:min(700px,94vw);height:min(540px,90vh);
@@ -704,6 +705,7 @@ const state={
   letters:[],            // 维护者的信 (CO-7, 动态追加)
   unlocked:{},           // 按键渐进披露: 已解锁的功能键集 (只加字段, 老档 inferUnlocks 反推)
   accepted:{},           // 任务准入铁律(J批): 显式接受过的模块任务 qid 集 (只加字段; 老档缺省={}, 靠 mq 进度反推)
+  ts:0,                  // 云存档(K批): 最近一次本地写档时间戳 (只加字段; 云端 vs 本地新旧比较用; 老档缺省=0)
   px:42.5*TILE, py:43*TILE
 };
 const EXP={as:new Set(),a2:new Set()};
@@ -711,7 +713,9 @@ function save(){
   try{
     state.px=player.x; state.py=player.y;
     state.explored={as:[...EXP.as],a2:[...EXP.a2]};
+    state.ts=Date.now();                       // 写档时间戳(云存档新旧比较用)
     localStorage.setItem(SAVE_KEY,JSON.stringify(state));
+    try{cloudPush();}catch(e){}                // 云存档: 已登录则节流上传(未登录 no-op)
   }catch(e){}
 }
 function hasSave(){try{return !!(localStorage.getItem(SAVE_KEY)||localStorage.getItem(OLD_KEY));}catch(e){return false;}}
@@ -1561,9 +1565,12 @@ function pruneClues(){
   });
   if(state.clues.length!==before)save();
 }
-function addClue(title,raw,hint){
+/* questId(可选): 归属任务 id → J 日志里线索嵌套显示在该任务条目下方(缩进卡片);
+   无 questId 或所属任务不在进行中 → 保留在「线索」无主区(兼容旧调用/旧存档) */
+function addClue(title,raw,hint,questId){
   if(state.clues.find(c=>clueKey(c.raw)===clueKey(raw)))return;
-  state.clues.push({title,raw,hint});toast(L('Clue added to journal (J)','线索已记入日志 (J)'));questChanged();save();
+  const c={title,raw,hint};if(questId)c.questId=questId;
+  state.clues.push(c);toast(L('Clue added to journal (J)','线索已记入日志 (J)'));questChanged();save();
 }
 function removeClue(raw){state.clues=state.clues.filter(c=>clueKey(c.raw)!==clueKey(raw));questChanged();save();}
 function collect(item){
@@ -1608,6 +1615,19 @@ function markAccepted(qid){if(!state.accepted)state.accepted={};state.accepted[q
 function journalEntries(){
   const act=[],doneL=[];
   const fb=(qid)=>' <span class="jfb" data-qid="'+esc(qid)+'" title="'+TT(L('board','留言板'))+'">💬</span>';
+  /* 线索归组: 进行中的任务把其名下线索(questId 匹配)嵌套显示在条目下方(缩进卡片);
+     被嵌套的线索记入 nestedKeys → 从「线索」无主区剔除。任务已完成/不显示 → 线索回落无主区(仍可见)。 */
+  const nestedKeys=new Set();
+  const nestHtml=(qid)=>{
+    if(!qid)return '';
+    let s='';
+    state.clues.forEach(c=>{
+      if(c.questId!==qid)return;
+      nestedKeys.add(clueKey(c.raw));
+      s+='<div class="clue clue-nest"><b>'+TT(c.title)+'</b><br><code>'+esc(TT(c.raw))+'</code><br><span class="dim">'+TT(c.hint)+'</span></div>';
+    });
+    return s;
+  };
   state.quests.forEach(q=>{
     let h='<div class="q '+(q.done?'done ':'')+(q.type==='hidden'?'hid':'')+'">'+TT(q.text)+(q.done?fb(q.id):'')+'</div>';
     if(q.id==='m4'&&!q.done){
@@ -1619,6 +1639,7 @@ function journalEntries(){
            (c.mod==='asm'?' <span class="dim">'+TT(L('(free challenge)','(自由挑战, 不挡飞升)'))+'</span>':'')+'</div>';
       });
     }
+    if(!q.done)h+=nestHtml(q.id);     // 归属线索嵌套在进行中的任务下方
     (q.done?doneL:act).push({sec:q.type,html:h});
   });
   MODLIST.forEach(m=>{
@@ -1627,18 +1648,18 @@ function journalEntries(){
       if(!mqEngaged(q.id))return;    // 铁律: 未接受(零进度)的任务不进 J
       const st=stepStateOf(q),sec=(q.line==='main')?'main':(q.line==='hidden'?'hidden':'side');
       let h='<div class="q '+(st.done?'done':'')+'">'+TT(q.title)+' <span class="dim" style="font-size:10px">['+TT(m.title)+']</span>'+(st.done?fb(q.id):'')+'</div>';
-      if(!st.done)(q.steps||[]).forEach(sp=>{h+='<div class="st'+(st.steps[sp.id]?' done':'')+'">'+TT(sp.text)+'</div>';});
+      if(!st.done){(q.steps||[]).forEach(sp=>{h+='<div class="st'+(st.steps[sp.id]?' done':'')+'">'+TT(sp.text)+'</div>';});h+=nestHtml(q.id);}
       (st.done?doneL:act).push({sec,html:h});
     });
   });
-  return {act,doneL};
+  return {act,doneL,nestedKeys};
 }
 function renderJournal(){
   const el=$('journal');
   el.style.display=journalOpen?'block':'none';
   if(!journalOpen)return;
   try{pruneClues();}catch(e){}
-  const {act,doneL}=journalEntries();
+  const {act,doneL,nestedKeys}=journalEntries();
   let h='<h3>'+TT(L('QUEST LOG','任务日志'))+' <span class="dim" style="float:right;font-weight:normal">J</span></h3>';
   /* 最近事件回看: toast 零丢失兜底 */
   if(state.recentEvents&&state.recentEvents.length){
@@ -1669,9 +1690,10 @@ function renderJournal(){
             :L('(all clear — for now)','（当前全部完成）'))+'</div>';
       }
     });
-    if(state.clues.length){
+    const flatClues=state.clues.filter(c=>!(nestedKeys&&nestedKeys.has(clueKey(c.raw))));  // 已嵌套的不再重复
+    if(flatClues.length){
       h+='<div class="sec">'+TT(L('CLUES','线索'))+'</div>';
-      state.clues.forEach(c=>h+='<div class="clue"><b>'+TT(c.title)+'</b><br><code>'+esc(TT(c.raw))+'</code><br><span class="dim">'+TT(c.hint)+'</span></div>');
+      flatClues.forEach(c=>h+='<div class="clue"><b>'+TT(c.title)+'</b><br><code>'+esc(TT(c.raw))+'</code><br><span class="dim">'+TT(c.hint)+'</span></div>');
     }
   }else{
     if(!doneL.length)h+='<div class="dim" style="font-size:11px;margin-top:8px">'+TT(L('(nothing completed yet)','（还没有完成的条目）'))+'</div>';
@@ -2147,7 +2169,7 @@ function asmWin(){
       setTimeout(()=>toast(L('◈ Uplink restored — press L for the leaderboard.','◈ 上传链路已恢复——按 L 打开排行榜。'),true),5400);
       addQuest('m4',L('Act II · Restore: clear the main line of the numbered districts (recommended order: Ch.1→6)','第二幕·修复: 完成编号领域的主线 (推荐顺序: 第1→6章)'),'main');
       addClue(L('Where the corrosion comes from','腐蚀从哪来'),'CORRUPTION << LOWER LAYER',
-        L('Echo saw it: the rot seeps upward, from beneath this world. Something below is still running.','回声看见了: 腐蚀在往上渗, 来自这个世界的下面。下面还有东西在运行。'));
+        L('Echo saw it: the rot seeps upward, from beneath this world. Something below is still running.','回声看见了: 腐蚀在往上渗, 来自这个世界的下面。下面还有东西在运行。'),'m4');
       save();
     }},
   ]);
@@ -2307,6 +2329,7 @@ const api={
   teleport(tx,ty){player.x=(tx+0.5)*CT;player.y=(ty+0.5)*CT;},
   scene(steps,done){runScene(steps,done);},
   quest:{add:addQuest,done:doneQuest,isDone:questDone},
+  addClue(title,raw,hint,questId){addClue(title,raw,hint,questId);},  // 透传 questId 供模块未来归组线索(旧不传=无主区)
 };
 Object.defineProperty(api,'player',{get(){return {x:player.x/CT,y:player.y/CT,px:player.x,py:player.y};}});
 Object.defineProperty(api,'TILE',{get(){return CT;}});
@@ -2580,6 +2603,120 @@ function pollTeacherGate(){
         if(c)newChapterScene(c);
       }else if(state.chapSeen>teacherChapter){state.chapSeen=teacherChapter;save();}
     }).catch(()=>{});
+  }catch(e){}
+}
+/* ---------------- 13d. 云存档 (K批: 复用排行榜账号 /bitescape/saves/{nameKey}) ----------------
+   复用 lbNameKey() 登录态; 未登录=纯本地(全 no-op); 存档 blob=现有导出码格式(不改存档结构);
+   写节流 ≥30s; 启动/登录拉档带双向确认(不静默覆盖); 离线/写失败 fail-silent 下次补写; 导出码保留。
+   cloudFetch 可被探针换成 mock(绝不写生产库); 生产运行=真实 fetch。 */
+const CLOUD_MIN_MS=30000;
+let cloudFetch=(typeof fetch!=='undefined')?((u,o)=>fetch(u,o)):(()=>Promise.reject('no fetch'));
+let cloudPushTimer=null, cloudPending=false, cloudLastPush=0;
+let cloudSynced=false, cloudLastNK=null, cloudPulledNK=null, cloudConfirmActive=false;
+function cloudUrl(nk){return DBROOT+'/bitescape/saves/'+encodeURIComponent(nk)+'.json';}
+/* 存档 blob = 现有导出码格式 (BIT1.base64(json)) —— 与 pause 面板导出码完全一致 */
+function saveBlob(){try{const j=localStorage.getItem(SAVE_KEY)||'';return j?('BIT1.'+btoa(unescape(encodeURIComponent(j)))):null;}catch(e){return null;}}
+function decodeBlob(blob){
+  try{let v=String(blob||'').trim();if(v.slice(0,5)==='BIT1.')v=v.slice(5);
+    const d=JSON.parse(decodeURIComponent(escape(atob(v))));
+    return (d&&typeof d==='object'&&d.v!=null)?d:null;
+  }catch(e){return null;}
+}
+/* 上传(节流 ≥30s): 已登录才动; 失败 fail-silent 且保留 pending → 下次 save 补写 */
+function cloudPush(){
+  if(!lbNameKey())return;                       // 未登录: 纯本地不动
+  cloudPending=true;
+  if(cloudPushTimer)return;
+  const wait=Math.max(0,cloudLastPush+CLOUD_MIN_MS-Date.now());
+  cloudPushTimer=setTimeout(cloudFlush,wait);
+}
+function cloudFlush(){
+  cloudPushTimer=null;
+  const nk=lbNameKey();
+  if(!nk||!cloudPending)return Promise.resolve();
+  const blob=saveBlob();
+  if(!blob)return Promise.resolve();
+  cloudPending=false; cloudLastPush=Date.now();
+  const body=JSON.stringify({blob:blob,ts:state.ts||Date.now(),ver:state.v});
+  return cloudFetch(cloudUrl(nk),{method:'PUT',body:body})
+    .then(()=>{cloudSynced=true;cloudStatusInject();})
+    .catch(()=>{cloudPending=true;cloudSynced=false;cloudStatusInject();});   // 离线: 下次补写
+}
+/* 拉档(启动/登录): 云端 ts 新于本地 → 弹双向确认; 否则本地更新则推上去 */
+function cloudPull(){
+  const nk=lbNameKey();
+  if(!nk)return Promise.resolve();              // 未登录: 不拉
+  return cloudFetch(cloudUrl(nk)).then(r=>r.json()).then(cloud=>{
+    if(!cloud||!cloud.blob){                     // 云端无档: 本地有档则首传
+      cloudSynced=!!hasSave();cloudStatusInject();
+      if(hasSave())cloudPush();
+      return;
+    }
+    const cloudTs=+cloud.ts||0, localTs=+state.ts||0;
+    if(cloudTs>localTs){                          // 云端更新 → 确认, 不静默覆盖
+      cloudConfirmLoad(cloud,cloudTs);
+    }else{
+      cloudSynced=true;cloudStatusInject();
+      if(localTs>cloudTs)cloudPush();             // 本地更新: 推上去
+    }
+  }).catch(()=>{cloudStatusInject();});          // 离线: fail-silent
+}
+function cloudConfirmLoad(cloud,cloudTs){
+  if(cloudConfirmActive)return;
+  if(!running||mode!=='play'||sceneActive||dlg){ // 时机不合适: 稍后再问(不打断演出/对话)
+    setTimeout(()=>cloudConfirmLoad(cloud,cloudTs),1500);return;
+  }
+  cloudConfirmActive=true;cloudStatusInject();
+  let when='';try{when=new Date(cloudTs).toLocaleString();}catch(e){}
+  startDialog([{
+    sp:L('Cloud Save','云存档'),
+    t:L('The cloud has newer progress (saved '+when+'). Load the cloud save, or keep your local one?',
+        '云端有更新的进度(存档时间 '+when+')。加载云端存档, 还是保留本地?'),
+    choices:[
+      {t:L('Load cloud (overwrite local)','加载云端(覆盖本地)'),do(){cloudApply(cloud);}},
+      {t:L('Keep local','保留本地'),do(){cloudSynced=false;cloudStatusInject();cloudPush();}}  // 保留本地: 下次写档自然覆盖云端
+    ]
+  }],()=>{cloudConfirmActive=false;cloudStatusInject();});
+}
+function cloudApply(cloud){
+  const d=decodeBlob(cloud.blob);
+  if(!d){toast(L('Cloud save unreadable — kept local.','云存档无法读取——已保留本地。'));return;}
+  try{
+    localStorage.setItem(SAVE_KEY,JSON.stringify(d));
+    toast(L('Cloud save loaded — reloading…','云存档已载入——正在重载…'),true);
+    setTimeout(()=>location.reload(),900);
+  }catch(e){toast(L('Could not apply cloud save.','无法应用云存档。'));}
+}
+/* 登录态监测: nameKey 变化(登录/切号/登出) → 拉档一次; 每号只自动拉一次(同会话) */
+function cloudSyncTick(){
+  const nk=lbNameKey();
+  if(nk!==cloudLastNK){
+    cloudLastNK=nk;
+    if(!nk){cloudSynced=false;cloudPulledNK=null;}
+  }
+  if(nk&&running&&nk!==cloudPulledNK){
+    cloudPulledNK=nk;
+    try{cloudPull();}catch(e){}
+  }
+  cloudStatusInject();
+}
+/* 排行榜登录面板同步状态行: 注入 #lb-root .lb-foot 一个常驻 span(登录/登出/同步态都在此) */
+function cloudStatusText(){
+  if(!lbNameKey())return TT(L('☁ Cloud save: not signed in','☁ 云存档: 未登录'));
+  if(cloudConfirmActive)return TT(L('☁ Cloud save: awaiting your choice','☁ 云存档: 待你确认'));
+  if(cloudPending)return TT(L('☁ Cloud save: syncing…','☁ 云存档: 同步中…'));
+  return TT(cloudSynced?L('☁ Cloud save: synced','☁ 云存档: 已同步')
+                       :L('☁ Cloud save: signed in','☁ 云存档: 已登录'));
+}
+function cloudStatusInject(){
+  try{
+    const root=document.getElementById('lb-root');if(!root)return;
+    const foot=root.querySelector('.lb-foot');if(!foot)return;
+    let el=document.getElementById('biteCloudRow');
+    if(!el){el=document.createElement('span');el.id='biteCloudRow';
+      el.style.cssText='font-size:11px;margin-left:12px;opacity:.85;color:#8fd0ff';
+      foot.appendChild(el);}
+    el.textContent=cloudStatusText();
   }catch(e){}
 }
 /* 「新领域苏醒」演出 (CO-7 完全体: 游戏更新节奏 = 课程表) */
@@ -3100,7 +3237,7 @@ function winHexBet(){
   state.flags.hexDone=true;
   if(!state.quests.find(q=>q.id==='s_hex'))addQuest('s_hex',L('Side: the Radix Merchant\'s bet','支线: 进制商人的打赌'),'side');
   addClue(L('The merchant\'s tip','商人的情报'),'0x2A = 42',
-    L('The number the temple terminal wants. Good numbers repeat.','神殿终端想要的输出, 就是这个数。好数字会重复出现。'));
+    L('The number the temple terminal wants. Good numbers repeat.','神殿终端想要的输出, 就是这个数。好数字会重复出现。'),'s_hex');
   doneQuest('s_hex');save();
 }
 function sentTalk(){
@@ -3142,7 +3279,7 @@ function sentTalk(){
         state.flags.sentDone=true;
         addClue(L('The sentinel\'s memory','哨兵的记忆'),L('Reboot Tower · 8 locks','重启之塔·八道锁'),
           L('Temple, the six numbered districts, the deep layer — each breaks a chain. Eight broken, the tower opens.',
-            '神殿·六个编号领域·深层世界——每处断一道。八道尽断, 塔就会开。'));
+            '神殿·六个编号领域·深层世界——每处断一道。八道尽断, 塔就会开。'),'s_frag');
         doneQuest('s_frag');save();
       });
     }else{
@@ -3190,7 +3327,7 @@ function steleRead(s){
     state.flags.argClue=true;
     addClue(L('The Scratched Wall · coordinates','刻痕之墙·坐标'),'00001100 : 00111010',
       L('Two bytes = two decimals = a map tile [x, y]. Your tile shows bottom-left. Walk there.',
-        '两个字节 = 两个十进制数 = 地图格坐标 [x, y]。左下角是你当前坐标。走到那里去。'));
+        '两个字节 = 两个十进制数 = 地图格坐标 [x, y]。左下角是你当前坐标。走到那里去。'),'h_arg');
     addQuest('h_arg',L('???: decode the wall coordinates and walk there','???: 解码墙上的坐标, 走到那个地方'),'hidden');save();
   }
   // 回声偶尔评论 (30%) —— 不抢占已排好的 modalAfter(如 REF 引入演出)
@@ -3259,7 +3396,7 @@ function hiddenUse(h){
       state.flags.buriedDone=true;sfx.pickup();refAdd(6);
       doneQuest('h_buried');
       addClue(L('The buried terminal\'s last file','被埋终端的残档'),'FRAGMENT_09.tmp',
-        L('"…the ninth domain is not on the map." (authenticity doubtful)','"……第九个领域不在地图上。" (真伪存疑)'));
+        L('"…the ninth domain is not on the map." (authenticity doubtful)','"……第九个领域不在地图上。" (真伪存疑)'),'h_buried');
       showModal(L('[Buried Terminal]','【被埋的终端】'),
         L('You dig through half-melted data soil. One last screen remains:<br><br><code class="k">FRAGMENT_09.tmp — "the ninth domain is not on the map."</code><br><br><span class="k">◈ Hidden discovery logged</span>',
           '你扒开半融的数据土层。终端还剩最后一屏:<br><br><code class="k">FRAGMENT_09.tmp — "第九个领域不在地图上。"</code><br><br><span class="k">◈ 隐藏发现已记入日志</span>'));
@@ -4166,7 +4303,7 @@ function lbInit(){
   if(!window.LEADERBOARD)return;
   try{
     LEADERBOARD.init(lbStats,{hotkey:false,
-      onOpen:()=>{if(mode==='play')setMode('lb');},
+      onOpen:()=>{if(mode==='play')setMode('lb');setTimeout(cloudStatusInject,0);},   // 云存档状态行随面板注入
       onClose:()=>{if(mode==='lb')setMode('play');}});
   }catch(e){}
 }
@@ -4208,6 +4345,7 @@ function beginPlay(){
   drawHUD();renderJournal();refreshLangUI();
   setTimeout(soCelebrate,2500);        // 班级目标达标庆祝(登录见一次)
   setTimeout(pollTeacherGate,1200);    // 教师章节闸门: 进游戏即查一次
+  setTimeout(cloudSyncTick,1600);      // 云存档: 进游戏即拉档(已登录时带双向确认)
 }
 function newGame(){
   wipeSave();
@@ -4266,6 +4404,7 @@ fbInit();
 soInit();
 pollTeacherGate();
 setInterval(pollTeacherGate,60000);   // 教师章节闸门 60s 轮询
+setInterval(cloudSyncTick,4000);      // 云存档: 监测登录态变化(登录/切号)→ 拉档 + 刷新状态行
 setInterval(()=>{if(running)save();},8000);
 requestAnimationFrame(loop);
 
@@ -4300,6 +4439,12 @@ window.ENG={
   get dlg(){return dlg;},currentObjective,openPuzzle,MAN_PAGES,
   unlockFeature,keyUnlocked,renderTip,inferUnlocks,FEATURES,
   UIP,uiTransition,closeAllPanels,manualVisible,
+  /* 云存档(K批)测试出口: setCloudFetch 换 mock(绝不写生产库) */
+  saveBlob,decodeBlob,cloudPush,cloudFlush,cloudPull,cloudSyncTick,cloudStatusText,cloudStatusInject,
+  setCloudFetch(fn){cloudFetch=fn;},
+  get cloudSynced(){return cloudSynced;},get cloudPending(){return cloudPending;},
+  get cloudConfirmActive(){return cloudConfirmActive;},
+  resetCloudState(){cloudPushTimer&&clearTimeout(cloudPushTimer);cloudPushTimer=null;cloudPending=false;cloudLastPush=0;cloudSynced=false;cloudLastNK=null;cloudPulledNK=null;cloudConfirmActive=false;},
   flushable:true
 };
 
@@ -4312,6 +4457,20 @@ window.ENG={
     newGame();
     if(s!=='tut'){if(dlg)endDialog();sceneActive=false;}
     if(s==='journal'){state.tut=3;journalOpen=true;renderJournal();}
+    else if(s==='lbcloud'){                            // 排行榜登录面板 + 云存档同步状态行 目检
+      state.tut=4;running=true;setMode('play');
+      try{if(window.LEADERBOARD)LEADERBOARD.open();}catch(e){}
+      setTimeout(cloudStatusInject,60);
+    }
+    else if(s==='cluesview'){                          // 线索归组目检: 有主线索嵌套 + 无主线索 flat
+      state.tut=4;running=true;setMode('play');
+      addQuest('s_hex',L('Side: the Radix Merchant\'s bet','支线: 进制商人的打赌'),'side');
+      addQuest('h_arg',L('???: decode the wall coordinates and walk there','???: 解码墙上的坐标, 走到那个地方'),'hidden');
+      addClue(L('The merchant\'s tip','商人的情报'),'0x2A = 42',L('The number the temple terminal wants.','神殿终端想要的输出, 就是这个数。'),'s_hex');
+      addClue(L('The Scratched Wall · coordinates','刻痕之墙·坐标'),'00001100 : 00111010',L('Two bytes = a map tile [x, y]. Walk there.','两个字节 = 地图格坐标 [x, y]。走到那里去。'),'h_arg');
+      addClue(L('A key with no door','无门之钥'),'GHOST_KEY',L('A key with no door. Perhaps deeper in the system…','一把没有门的钥匙。也许在系统更深处…'));
+      journalOpen=true;jTab='act';renderJournal();
+    }
     else if(s==='manual')openManual(0);
     else if(s==='dex'){collectDex(DEX_BUILTIN[0].syl);openManual(DEX_PAGE);}
     else if(s==='bin')openBin();
@@ -4988,6 +5147,144 @@ function __probeOverlay(title,rows){
     rows.push(['ALL',rows.every(r=>r[1]),'']);
   }catch(e){rows.push(['EXCEPTION',false,String(e&&e.stack||e)]);}
   __probeOverlay('TOUR',rows);
+})();
+
+/* ---- 线索归组探针: index.html#clues → 有主线索嵌套在任务下, 无主线索留无主区; 归属映射自检 ---- */
+(function(){
+  if(!/(^|#|&)clues\b/.test(location.hash||''))return;
+  const rows=[];const chk=(n,c,x)=>rows.push([n,!!c,x||'']);
+  const errs=[];const oldOnerr=window.onerror;
+  window.onerror=function(m,s,l,c,e){errs.push(String(m));if(oldOnerr)try{oldOnerr(m,s,l,c,e);}catch(_){}return false;};
+  window.addEventListener('error',ev=>{errs.push(String(ev.message||ev.error||ev));});
+  try{
+    if(hasSave())wipeSave();
+    newGame();if(dlg)endDialog();sceneActive=false;state.tut=4;running=true;setMode('play');
+    // 造进行中任务 + 归属线索 + 无主线索
+    addQuest('probeQ',L('Probe quest','探针任务'),'main');
+    addClue(L('Owned clue','有主线索'),'OWNED_RAW',L('nested','嵌套'),'probeQ');
+    addClue(L('Orphan clue','无主线索'),'ORPHAN_RAW',L('flat','无主'));   // 旧签名: 无 questId
+    const owned=state.clues.find(c=>clueKey(c.raw)==='OWNED_RAW');
+    const orph =state.clues.find(c=>clueKey(c.raw)==='ORPHAN_RAW');
+    chk('addClue 存 questId 字段', owned&&owned.questId==='probeQ', owned&&owned.questId);
+    chk('旧调用(无 questId)线索不含 questId 字段', orph&&!('questId' in orph));
+    let je=journalEntries();
+    chk('有主线索被嵌套(nestedKeys 含)', je.nestedKeys.has('OWNED_RAW'));
+    chk('无主线索不被嵌套', !je.nestedKeys.has('ORPHAN_RAW'));
+    chk('恰好 1 条线索被嵌套', je.nestedKeys.size===1, 'size='+je.nestedKeys.size);
+    journalOpen=true;jTab='act';renderJournal();
+    const html=$('journal').innerHTML;
+    chk('J 渲染: 出现 .clue-nest 缩进卡片 & 含 OWNED_RAW', /clue-nest/.test(html)&&html.indexOf('OWNED_RAW')>=0);
+    chk('J 渲染: 无主线索仍在「线索」无主区', html.indexOf('ORPHAN_RAW')>=0);
+    const _oi=html.indexOf('ORPHAN_RAW'),_op=html.slice(0,_oi).lastIndexOf('<div class="clue');
+    chk('J 渲染: 无主线索卡片是 flat(.clue 非 clue-nest)', /^<div class="clue">/.test(html.slice(_op,_op+30)), html.slice(_op,_op+30));
+    // 任务完成 → 归属线索回落无主区(仍可见)
+    doneQuest('probeQ');
+    je=journalEntries();
+    chk('任务完成 → 其线索不再嵌套(回落无主区)', !je.nestedKeys.has('OWNED_RAW'));
+    renderJournal();
+    chk('任务完成后线索仍在 J 可见', $('journal').innerHTML.indexOf('OWNED_RAW')>=0);
+    // 老档兼容: 无 questId 的既有线索加载后仍显示在无主区(不迁移)
+    chk('老档线索(无 questId)始终无主区显示', journalEntries().nestedKeys.has('ORPHAN_RAW')===false);
+    // 引擎内 addClue 调用点归属映射自检 (源码)
+    chk('归属: 腐蚀线索→m4',        /CORRUPTION << LOWER LAYER[\s\S]{0,260}'m4'/.test(asmWin.toString()));
+    chk('归属: 商人情报→s_hex',     /0x2A = 42[\s\S]{0,220}'s_hex'/.test(winHexBet.toString()));
+    chk('归属: 哨兵记忆→s_frag',    /Reboot Tower[\s\S]{0,320}'s_frag'/.test(sentTalk.toString()));
+    chk('归属: 刻痕墙坐标→h_arg',   /00001100 : 00111010[\s\S]{0,320}'h_arg'/.test(steleRead.toString()));
+    chk('归属: 被埋残档→h_buried',  /FRAGMENT_09\.tmp[\s\S]{0,320}'h_buried'/.test(hiddenUse.toString()));
+    chk('归属: 无门之钥(GHOST_KEY) 有意留无主区', /GHOST_KEY'[\s\S]{0,120}系统更深处|A key with no door[\s\S]{0,200}\)\);/.test(hiddenUse.toString()));
+    chk('api.addClue 透传 questId 供未来使用', /addClue\(title,raw,hint,questId\)/.test(JSON.stringify(Object.getOwnPropertyNames(api)))||typeof api.addClue==='function');
+    chk('全程无 JS 错误', errs.length===0, errs.join(' | '));
+    rows.push(['ALL',rows.every(r=>r[1]),'']);
+  }catch(e){rows.push(['EXCEPTION',false,String(e&&e.stack||e)]);}
+  __probeOverlay('CLUES',rows);
+})();
+
+/* ---- 云存档探针: index.html#cloud → mock fetch(绝不写生产库) 验 push/pull/双向确认/节流/未登录不动 ---- */
+(function(){
+  if(!/(^|#|&)cloud\b/.test(location.hash||''))return;
+  const rows=[];const chk=(n,c,x)=>rows.push([n,!!c,x||'']);
+  const errs=[];const oldOnerr=window.onerror;
+  window.onerror=function(m,s,l,c,e){errs.push(String(m));if(oldOnerr)try{oldOnerr(m,s,l,c,e);}catch(_){}return false;};
+  window.addEventListener('error',ev=>{errs.push(String(ev.message||ev.error||ev));});
+  const AUTHKEY='bitescape_lb_auth_v1';
+  const setAuth=n=>{try{localStorage.setItem(AUTHKEY,JSON.stringify({name:n,pw:'x'}));}catch(e){}};
+  const clrAuth=()=>{try{localStorage.removeItem(AUTHKEY);}catch(e){}};
+  let store=null;const reqs=[];
+  const mock=(url,opt)=>{                       // 记录请求; 只服务 canned; 断言全在 saves 命名空间
+    reqs.push({url:String(url),method:(opt&&opt.method)||'GET'});
+    if(opt&&opt.method==='PUT'){try{store=JSON.parse(opt.body);}catch(e){}}
+    return Promise.resolve({json:()=>Promise.resolve(store)});
+  };
+  const run=async()=>{
+    if(hasSave())wipeSave();
+    clrAuth();ENG.resetCloudState();ENG.setCloudFetch(mock);
+    newGame();if(dlg)endDialog();sceneActive=false;state.tut=4;running=true;setMode('play');
+    // blob 往返 = 现有导出码格式
+    save();const blob=saveBlob();
+    chk('存档 blob 用现有导出码格式(BIT1.)', /^BIT1\./.test(blob||''), (blob||'').slice(0,8));
+    const dd=decodeBlob(blob);
+    chk('blob 解码往返 & v 保留', !!dd&&dd.v===state.v, dd&&('v='+dd.v));
+    // 未登录: 纯本地, 零网络
+    clrAuth();ENG.resetCloudState();reqs.length=0;store=null;
+    cloudPush();await cloudFlush();await cloudPull();
+    chk('未登录: 零网络请求(纯本地)', reqs.length===0, 'reqs='+reqs.length);
+    chk('未登录: 状态行=未登录', /not signed in|未登录/.test(cloudStatusText()), cloudStatusText());
+    // 登录 → 上传到 /bitescape/saves/{nameKey}
+    setAuth('ProbeUser');ENG.resetCloudState();reqs.length=0;store=null;
+    save();await cloudFlush();
+    const put=reqs.find(r=>r.method==='PUT');
+    chk('登录后发生上传(PUT)', !!put, JSON.stringify(reqs).slice(0,80));
+    chk('上传路径 = /bitescape/saves/{nameKey}', !!put&&/\/bitescape\/saves\/ProbeUser\.json/.test(put.url), put&&put.url);
+    chk('上传体 = {blob:导出码, ts, ver}', !!store&&/^BIT1\./.test(store.blob||'')&&store.ts>0&&store.ver!=null, JSON.stringify(store||{}).slice(0,70));
+    chk('mock 所有请求都在 saves 命名空间(绝不写生产其它库)', reqs.every(r=>/\/bitescape\/saves\//.test(r.url)), reqs.map(r=>r.url).join(' '));
+    chk('上传后状态行=已同步', /synced|已同步/.test(cloudStatusText()), cloudStatusText());
+    // 节流 ≥30s: 30s 内二次 push 不立即再发
+    reqs.length=0;cloudPush();
+    chk('30s 内二次 push 被节流(暂不发)', reqs.length===0, 'reqs='+reqs.length);
+    // 拉档: 云端更新 → 双向确认 (两个选项)
+    ENG.resetCloudState();setAuth('ProbeUser');save();
+    store={blob:saveBlob(),ts:(state.ts||0)+100000,ver:state.v};
+    await cloudPull();
+    chk('云端更新 → 弹双向确认对话(2 选项)',
+        cloudConfirmActive&&mode==='dialog'&&!!dlg&&dlg.nodes[0].choices&&dlg.nodes[0].choices.length===2,
+        'confirm='+cloudConfirmActive+' mode='+mode);
+    chooseDialog(1);                             // 选「保留本地」
+    chk('选保留本地 → 确认关闭回 play(不静默覆盖)', !cloudConfirmActive&&mode==='play', 'mode='+mode);
+    // 拉档: 云端不新 → 不弹确认
+    ENG.resetCloudState();setMode('play');save();
+    store={blob:saveBlob(),ts:1,ver:state.v};
+    await cloudPull();
+    chk('云端不比本地新 → 不弹确认', !cloudConfirmActive&&mode==='play');
+    // 云端无档 → 首传本地(不弹)
+    ENG.resetCloudState();reqs.length=0;store=null;save();
+    await cloudPull();await cloudFlush();
+    chk('云端无档 → 首传本地(有 PUT, 不弹确认)', reqs.some(r=>r.method==='PUT')&&!cloudConfirmActive);
+    // 状态行注入(无 lb DOM 时静默跳过不报错)
+    cloudStatusInject();
+    chk('无 lb 面板时 inject 静默不报错', true);
+    // 清理: 还原真实 fetch + 登出, 不留副作用
+    clrAuth();ENG.resetCloudState();ENG.setCloudFetch((u,o)=>fetch(u,o));
+    chk('全程无 JS 错误', errs.length===0, errs.join(' | '));
+    rows.push(['ALL',rows.every(r=>r[1]),'']);
+    __probeOverlay('CLOUD',rows);
+  };
+  run().catch(e=>{rows.push(['EXCEPTION',false,String(e&&e.stack||e)]);__probeOverlay('CLOUD',rows);});
+})();
+
+/* ---- 云存档双向确认目检: index.html#cloudview → mock 登录+云端更新, 停在确认对话供截图 ---- */
+(function(){
+  if(!/(^|#|&)cloudview\b/.test(location.hash||''))return;
+  try{
+    if(hasSave())wipeSave();
+    ENG.resetCloudState();
+    let store=null;
+    ENG.setCloudFetch((url,opt)=>{if(opt&&opt.method==='PUT'){try{store=JSON.parse(opt.body);}catch(e){}}return Promise.resolve({json:()=>Promise.resolve(store)});});
+    try{localStorage.setItem('bitescape_lb_auth_v1',JSON.stringify({name:'ProbeUser',pw:'x'}));}catch(e){}
+    newGame();if(dlg)endDialog();sceneActive=false;state.tut=4;running=true;setMode('play');
+    save();
+    store={blob:saveBlob(),ts:(state.ts||0)+3600000,ver:state.v};   // 云端“1 小时后”更新
+    cloudPull();                                                     // → 弹双向确认(停此供截图)
+  }catch(e){try{window.onerror(String(e),'',0);}catch(_){}}
 })();
 
 /* ---- 性能探针 (仅 #perf / #perf-nocache 时启用, 正常游玩零开销/零影响) ----
