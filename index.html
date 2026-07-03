@@ -418,6 +418,9 @@ window.onerror=function(msg,src,ln){
     }
     var b=document.getElementById('errbox');
     b.style.display='block'; b.textContent+='[JS ERROR] '+msg+' @'+f+':'+ln+'\n';
+    /* P6: 报错框可手动消除(点击即关), 不再永久遮挡左上角 */
+    if(!b.onclick){b.title='click to dismiss';b.style.cursor='pointer';
+      b.onclick=function(){b.style.display='none';b.textContent='';};}
   }catch(e){}
   return false;
 };
@@ -1095,6 +1098,12 @@ addEventListener('keydown',e=>{
   if(mode!=='manual'&&(k==='m'||k==='escape')&&manualVisible()){closeManual();return;}
   // 日志同理: 仅 play/manual 下有 J 开关; 若它在别的面板模式下悬挂, 也保证能被 J 关掉。
   if(mode!=='manual'&&mode!=='play'&&k==='j'&&journalOpen){toggleJournal();return;}
+  // P5/P6 泛化(UIP 注册表): 任何悬挂面板(DOM 可见但 mode 指向别处)都能被 Esc 或它自己的开关键关掉。
+  // 手册悬挂已由上面专门兜住; 这里兜其余面板(pause/map/modal/bin/asm/mod/lb/inv/dialog) — 不变量 I4/I5。
+  if(!sceneActive&&(k==='escape'||k==='m'||k==='tab'||k==='l'||k==='i')){
+    const _sp=UIP.stranded().find(p=>k==='escape'||(p.keys&&p.keys.includes(k)));
+    if(_sp){try{_sp.close();}catch(e){}return;}
+  }
   if(mode==='play'){
     if(journalOpen&&(k==='arrowleft'||k==='arrowright')){jTab=(k==='arrowleft')?'act':'done';renderJournal();return;}
     keys[k]=true;
@@ -1198,6 +1207,67 @@ function openPause(){
   };
 }
 function closePause(){$('pauseP').style.display='none';if(mode==='pause')setMode('play');}
+
+/* ---------------- 5c. 面板注册表 UIP — 可见性单一真相 (诊断书 §6) ----------------
+   每面板一条 {id,modeName,keys,isOpen,close,hide}:
+   - isOpen() 一律查 DOM 实际可见性(不查 mode) — I1/I5;
+   - close()  = 常规关闭(带 mode 回落/回调), 玩家按键走这条;
+   - hide()   = 流程清场用静默关闭(无回调/无音效/无 mode 副作用), closeAllPanels 走这条;
+   - stranded() = 可见但 mode 指向别处的悬挂面板(手册侧挂的下层 manReturn 面板是合法停靠, 不算)。
+   外部面板(lb/inv)用模块自带 isOpen(), 模块缺失视为关闭。 */
+const UIP={
+  panels:[
+    {id:'dialog',modeName:'dialog',keys:[],
+     isOpen:()=>$('dlgP').style.display==='block',
+     close:()=>endDialog(),
+     hide:()=>{$('dlgP').style.display='none';dlg=null;curTalkNpc=null;}},
+    {id:'modal',modeName:'modal',keys:[],
+     isOpen:()=>$('modalP').style.display==='block',
+     close:()=>closeModal(),
+     hide:()=>{modalAfter=null;$('modalP').style.display='none';}},
+    {id:'manual',modeName:'manual',keys:['m'],
+     isOpen:()=>$('manual').classList.contains('on'),
+     close:()=>closeManual(),
+     hide:()=>{$('manual').classList.remove('on','side');$('manual').style.display='none';
+               document.body.classList.remove('man-side');manReturn=null;}},
+    {id:'bin',modeName:'bin',keys:[],
+     isOpen:()=>$('binP').style.display==='block',
+     close:()=>closeBin(),
+     hide:()=>{$('binP').style.display='none';}},
+    {id:'asm',modeName:'asm',keys:[],
+     isOpen:()=>$('asmP').classList.contains('on'),
+     close:()=>closeAsm(),
+     hide:()=>{$('asmP').classList.remove('on');$('asmP').style.display='none';}},
+    {id:'mod',modeName:'mod',keys:[],
+     isOpen:()=>$('modP').classList.contains('on'),
+     close:()=>closeModPanel(),
+     hide:()=>{$('modP').classList.remove('on');$('modP').style.display='none';curPuzzle=null;}},
+    {id:'map',modeName:'map',keys:['tab'],
+     isOpen:()=>$('mapP').style.display==='block',
+     close:()=>closeMap(),
+     hide:()=>{$('mapP').style.display='none';}},
+    {id:'pause',modeName:'pause',keys:[],
+     isOpen:()=>$('pauseP').style.display==='block',
+     close:()=>closePause(),
+     hide:()=>{$('pauseP').style.display='none';}},
+    {id:'lb',modeName:'lb',keys:['l'],
+     isOpen:()=>{try{return !!(window.LEADERBOARD&&LEADERBOARD.isOpen&&LEADERBOARD.isOpen());}catch(e){return false;}},
+     close:()=>lbClose(),
+     hide:()=>{try{if(window.LEADERBOARD)LEADERBOARD.close();}catch(e){}}},
+    {id:'inv',modeName:'inv',keys:['i'],
+     isOpen:()=>{try{return !!(window.INVENTORY&&INVENTORY.isOpen&&INVENTORY.isOpen());}catch(e){return false;}},
+     close:()=>{try{if(window.INVENTORY)INVENTORY.close();}catch(e){}},
+     hide:()=>{try{if(window.INVENTORY)INVENTORY.close();}catch(e){}}},
+  ],
+  get(id){return this.panels.find(p=>p.id===id);},
+  visible(){return this.panels.filter(p=>{try{return p.isOpen();}catch(e){return false;}});},
+  stranded(){return this.visible().filter(p=>p.modeName!==mode&&!(mode==='manual'&&manReturn===p.modeName));},
+};
+/* 统一上下文切换: 一切改 mode 的流程走这里; 面板清理是显式决策(默认清场, clear:false 显式保留) */
+function uiTransition(m,opt){
+  if(!opt||opt.clear!==false)closeAllPanels();
+  setMode(m);
+}
 
 /* ---------------- 6. 面板管理 ---------------- */
 function showModal(title,html){
@@ -2142,8 +2212,9 @@ function modCompleteStep(a,b){
   st.steps[sid]=true;
   sfx.ok();refAdd(5);
   if(hit.s)toast(TT(L('✓ ','✓ '))+TT(hit.s.text));
-  if(mode==='mod'&&curPuzzle&&curPuzzle.syllabus)collectDex(curPuzzle.syllabus);
-  if(mode==='mod'&&curPuzzle)reportHintSolved(curPuzzle.id);
+  /* P2 修复: 记分以 curPuzzle 为准, 不看 mode — 玩家侧挂手册解题(mode='manual')时大纲收录/教师上报不再丢失 */
+  if(curPuzzle&&curPuzzle.syllabus)collectDex(curPuzzle.syllabus);
+  if(curPuzzle)reportHintSolved(curPuzzle.id);
   if((hit.q.steps||[]).every(s=>st.steps[s.id]))modQuestComplete(hit.q.id);
   questChanged();save();
 }
@@ -2330,6 +2401,8 @@ function runLightScene(modId){
     {panReset:true},
     {run(){
       if(!state.flags.mapUnlock)return;
+      /* P4 修复: 演出自动开地图只在干净的 play 上下文进行, 不覆盖/顶掉玩家已打开的面板 */
+      if(mode!=='play'||UIP.visible().length)return;
       mapFlash={id:modId,t0:performance.now()};
       openMap();
       const step=()=>{ if(!mapFlash)return;
@@ -2610,17 +2683,17 @@ function enterRecycler(){
   setContext();
   const ps=IMODS.__recycler.interior.playerStart;
   player.x=(ps.x+0.5)*CT;player.y=(ps.y+0.5)*CT;
-  // 关掉一切面板
-  closeModPanel();closeAllPanels();
-  setMode('play');
+  // 统一转换: 清一切面板(含 pause/lb/inv)再落 play — 诊断书 I6
+  uiTransition('play');
   toast(L('REF hit 0 — the Recycler collected you. Find the exit terminal.','REF 归零——你被回收了。找到出口终端离开。'),true);
   save();
 }
 function closeAllPanels(){
-  ['modalP','dlgP','binP','asmP','modP','mapP'].forEach(id=>{const e=$(id);e.classList.remove('on');e.style.display='none';});
-  $('manual').classList.remove('on','side');$('manual').style.display='none';
+  /* P3 修复: 走 UIP 注册表静默清场(hide 无回调/无音效), 自动覆盖 pauseP + 外部 lb/inv,
+     并取消 modalAfter 回调 — 流程清场后不得有任何面板残留(不变量 I6)。 */
+  UIP.panels.forEach(p=>{try{if(p.isOpen())p.hide();}catch(e){}});
   document.body.classList.remove('man-side');
-  dlg=null;manReturn=null;curPuzzle=null;
+  dlg=null;manReturn=null;curPuzzle=null;modalAfter=null;
 }
 function recyclerExit(){
   state.ref=20;
@@ -2655,8 +2728,7 @@ function startAscend(){
   state.ascended=true;state.a2Unlocked=true;
   doneQuest('m4');
   save();
-  setMode('ascend');
-  closeAllPanels();
+  uiTransition('ascend');   // 统一转换: 清一切面板(含 pause/lb/inv)再入过场 — 诊断书 I6
   glitchPow=1;glitchUntil=performance.now()+1400;sfx.glitch();
   const ov=$('ascendOv');
   $('ascT1').textContent=TT(L('You have passed your first compilation.','你通过了第一次编译。'));
@@ -4227,6 +4299,7 @@ window.ENG={
   migrateV3,migrateV4to5,startDialog,endDialog,advanceDialog,chooseDialog,
   get dlg(){return dlg;},currentObjective,openPuzzle,MAN_PAGES,
   unlockFeature,keyUnlocked,renderTip,inferUnlocks,FEATURES,
+  UIP,uiTransition,closeAllPanels,manualVisible,
   flushable:true
 };
 
@@ -4549,6 +4622,149 @@ function __probeOverlay(title,rows){
     rows.push(['ALL',rows.every(r=>r[1]),'']);
   }catch(e){rows.push(['EXCEPTION',false,String(e&&e.stack||e)]);}
   __probeOverlay('MANUAL',rows);
+})();
+
+/* ---- UI 状态机矩阵探针: index.html#uistate ----
+   诊断书 §5 的回归基线: 自动遍历「打开每个面板 × 触发每类流程 × 按 Esc/开关键」组合,
+   断言不变量 I2(play 无面板)/I4(Esc 必关)/I5(toggle 查 DOM)/I7(mode↔可见一致)/I8(记分不依赖 mode)。
+   引擎任何 UI/面板/流程改动必须先跑本探针全 PASS。判定读 document.title = 'UISTATE PASS|FAIL'。 */
+(function(){
+  if(!/(^|#|&)uistate\b/.test(location.hash||''))return;
+  const rows=[];const chk=(n,c,x)=>rows.push([n,!!c,x||'']);
+  const errs=[];const oldOnerr=window.onerror;
+  window.onerror=function(m,s,l,c,e){errs.push(String(m));if(oldOnerr)try{oldOnerr(m,s,l,c,e);}catch(_){}return false;};
+  window.addEventListener('error',ev=>{errs.push(String(ev.message||ev.error||ev));});
+  const press=k=>window.dispatchEvent(new KeyboardEvent('keydown',{key:k}));
+  const visIds=()=>UIP.visible().map(p=>p.id).join(',');
+  function invariants(tag){
+    const v=UIP.visible();
+    if(mode==='play')chk(tag+' [I2] play 无可见面板', v.length===0, 'visible='+visIds());
+    else if(mode==='manual'){
+      const ok=v.some(p=>p.id==='manual')&&v.every(p=>p.id==='manual'||manReturn===p.modeName);
+      chk(tag+' [I7] manual(含合法侧挂下层)一致', ok, 'visible='+visIds()+' manReturn='+manReturn);
+    }else if(mode!=='intro'&&mode!=='ascend'){
+      const ok=v.length===1&&v[0].modeName===mode;
+      chk(tag+' [I7] mode↔唯一可见面板一致', ok, 'mode='+mode+' visible='+visIds());
+    }
+  }
+  function clean(){closeAllPanels();setMode('play');sceneActive=false;camOverride=null;pendingLight=null;}
+  try{
+    if(hasSave())wipeSave();
+    newGame();if(dlg)endDialog();sceneActive=false;state.tut=4;
+    state.gate=true;state.asm=true;openGateTiles();openDoor2Tiles();
+    state.flags.revealDone=true;state.flags.mapUnlock=true;state.flags.refIntro=true;
+    inferUnlocks();clean();
+    const OPEN={
+      modal:()=>showModal('T','probe body'),
+      dialog:()=>startDialog([{sp:'X',t:'line one'},{sp:'X',t:'line two'}]),
+      manual:()=>openManual(0),
+      bin:()=>{const g=state.gate;state.gate=false;openBin();state.gate=g;},
+      asm:()=>openAsm(),
+      map:()=>openMap(),
+      pause:()=>openPause(),
+      lb:()=>{try{if(window.LEADERBOARD)LEADERBOARD.open();}catch(e){}},
+      inv:()=>{try{if(window.INVENTORY&&INVENTORY.open)INVENTORY.open();}catch(e){}},
+    };
+    const has=id=>!((id==='lb'&&!window.LEADERBOARD)||(id==='inv'&&!window.INVENTORY));
+    /* — 矩阵 A: 打开每面板 → I7 一致 → Esc 连按必全关回 play (I4) — */
+    Object.keys(OPEN).forEach(id=>{
+      if(!has(id)){rows.push(['SKIP A['+id+'] (module absent)',true,'']);return;}
+      clean();OPEN[id]();
+      const p=UIP.get(id);
+      chk('A['+id+'] 打开后面板可见', p.isOpen(), 'mode='+mode);
+      invariants('A['+id+']');
+      let n=0;while(n++<6&&(UIP.visible().length||mode!=='play'))press('Escape');
+      chk('A['+id+'] Esc 连按全关回 play [I4]', UIP.visible().length===0&&mode==='play', 'mode='+mode+' visible='+visIds());
+    });
+    /* — 矩阵 B: toggle 键以 DOM 可见性为准 (I5) — */
+    clean();press('m');
+    chk('B play按M → 手册开', UIP.get('manual').isOpen()&&mode==='manual', 'mode='+mode);
+    press('m');
+    chk('B 再按M → 手册关回 play [I5]', !UIP.get('manual').isOpen()&&mode==='play', 'mode='+mode);
+    press('Tab');
+    chk('B play按Tab → 地图开', UIP.get('map').isOpen()&&mode==='map', 'mode='+mode);
+    press('Tab');
+    chk('B 再按Tab → 地图关回 play [I5]', !UIP.get('map').isOpen()&&mode==='play', 'mode='+mode);
+    /* — 矩阵 C: 人为悬挂(面板可见但 mode 被切走) × Esc/自身键 必可关 (I4/I5) — */
+    ['modal','manual','bin','asm','map','pause'].forEach(id=>{
+      clean();OPEN[id]();mode='play';
+      press('Escape');
+      chk('C 悬挂['+id+'] Esc 可关 [I4]', !UIP.get(id).isOpen(), 'visible='+visIds());
+      chk('C 悬挂['+id+'] 后回 play 无面板 [I2]', mode==='play'&&UIP.visible().length===0, 'mode='+mode);
+    });
+    clean();OPEN.map();mode='play';press('Tab');
+    chk('C 悬挂[map] 按Tab 可关 [I5]', !UIP.get('map').isOpen()&&mode==='play', 'mode='+mode);
+    clean();OPEN.manual();mode='play';press('m');
+    chk('C 悬挂[manual] 按M 可关 [I5]', !UIP.get('manual').isOpen()&&mode==='play', 'mode='+mode);
+    /* — 矩阵 D: 流程 × 面板开着 — */
+    const FLOWP=['modal','dialog','manual','bin','asm','map','pause'].concat(window.LEADERBOARD?['lb']:[]).concat(window.INVENTORY?['inv']:[]);
+    FLOWP.forEach(id=>{               // D1 REF 归零回收
+      clean();OPEN[id]();
+      enterRecycler();
+      chk('D1 回收×['+id+'] 清场落 play [I2/I6]', mode==='play'&&UIP.visible().length===0, 'visible='+visIds());
+      recyclerExit();clean();
+    });
+    state.ref=100;
+    FLOWP.forEach(id=>{               // D2 语言切换
+      clean();OPEN[id]();const m0=mode;
+      toggleLang();
+      chk('D2 语言×['+id+'] 面板不消失 mode 不漂移', UIP.get(id).isOpen()&&mode===m0, 'mode='+mode);
+      invariants('D2['+id+']');
+      toggleLang();clean();
+    });
+    /* — E: P1/P2 实锤组合(手册侧挂 × 谜题/门通关) — */
+    if(MODS.logic&&IMODS.logic){
+      doorStamp['logic']=Date.now();  // 跳过开门动画 → enterInterior 同步生效
+      enterInterior('logic');
+      const p=(MODS.logic.puzzles||[])[0];
+      if(p){
+        state.flags['primer_seen_'+p.id]=true;
+        openPuzzle(p);openManual();
+        chk('E 前置: mod+侧挂手册', UIP.get('mod').isOpen()&&UIP.get('manual').isOpen()&&mode==='manual', 'mode='+mode);
+        api.closePanel();             // 域模块通关/离开路径 (P1 家族)
+        chk('E 通关关谜题×侧挂手册: 无幻影 mode [P1]', mode==='play'&&UIP.visible().length===0, 'mode='+mode+' visible='+visIds());
+        /* P2 记分组合: 全 MODLIST 找一个「带 syllabus 的谜题 + 带步骤的任务」的模块(不限 logic) */
+        let p2m=null,p2p=null,p2q=null;
+        for(const mm of MODLIST){
+          const pp=(mm.puzzles||[]).find(x=>x.syllabus);
+          const qq=(mm.quests||[]).find(q=>(q.steps||[]).length);
+          if(pp&&qq&&IMODS[mm.id]){p2m=mm;p2p=pp;p2q=qq;break;}
+        }
+        if(p2m){
+          if(state.interior!==p2m.id){doorStamp[state.interior||'logic']=Date.now();leaveInterior();doorStamp[p2m.id]=Date.now();enterInterior(p2m.id);}
+          state.flags['primer_seen_'+p2p.id]=true;
+          openPuzzle(p2p);openManual();  // mode='manual', 手册侧挂
+          modCompleteStep(p2q.id,p2q.steps[0].id);
+          chk('E 侧挂手册解题['+p2m.id+']: 大纲图鉴仍收录 [I8/P2]', state.dex.includes(p2p.syllabus), 'syl='+p2p.syllabus+' mode='+mode);
+          closeManual();closeModPanel();
+        }else rows.push(['SKIP E-P2 (无可用 syllabus 谜题模块)',true,'']);
+      }else rows.push(['SKIP E (logic 无谜题)',true,'']);
+      doorStamp['logic']=Date.now();
+      leaveInterior();
+    }else rows.push(['SKIP E (logic 模块未加载)',true,'']);
+    clean();
+    const g0=state.gate;state.gate=false;openBin();openManual(0);
+    closeBin();
+    chk('E closeBin×侧挂手册: 手册联动收起 [P1]', !UIP.get('manual').isOpen()&&mode==='play', 'mode='+mode);
+    state.gate=g0;clean();
+    /* — F(异步尾): 面板开着时点亮演出不顶面板 (P4), 之后飞升清场 (P3) — */
+    clean();OPEN.pause();
+    runLightScene('data');            // 演出约 2.3s; P4 修复后自动开地图应被跳过
+    setTimeout(()=>{
+      try{
+        chk('F 点亮演出×pause: 面板不被顶掉 [P4]', UIP.get('pause').isOpen()&&mode==='pause', 'mode='+mode+' visible='+visIds());
+        chk('F 点亮演出×pause: 地图未被强开 [P4]', !UIP.get('map').isOpen());
+        chk('F 演出已收尾(sceneActive=false)', sceneActive===false);
+        state.ascended=false;
+        startAscend();                // 飞升 × pause 开着 (P3: closeAllPanels 需覆盖 pauseP)
+        chk('F 飞升×pause: 全面板清场 [P3/I6]', UIP.visible().length===0, 'visible='+visIds());
+        chk('F 飞升×pause: mode=ascend', mode==='ascend', 'mode='+mode);
+        chk('F 全程无 JS 错误', errs.length===0, errs.slice(0,3).join(' | '));
+        rows.push(['ALL',rows.every(r=>r[1]),rows.filter(r=>!r[1]).length+' fail / '+rows.length]);
+      }catch(e){rows.push(['EXCEPTION-F',false,String(e&&e.stack||e)]);}
+      __probeOverlay('UISTATE',rows);
+    },2600);
+  }catch(e){rows.push(['EXCEPTION',false,String(e&&e.stack||e)]);__probeOverlay('UISTATE',rows);}
 })();
 
 /* ---- 各建筑可达性 BFS: index.html#reach → 新档双门全开, 洪泛验证每个领域/塔/门/直答门都从出生点可达 + 前期线性 ---- */
