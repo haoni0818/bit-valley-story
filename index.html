@@ -581,33 +581,42 @@ function setLang(l){
     document.body.classList.toggle('lang-zh',l==='zh');
     document.body.classList.toggle('lang-en',l!=='zh');
   }catch(e){}
+  // 切换语言时清掉旧语言 toast 残留(已入 recentEvents 可回看), 别让排队/在显的旧文案穿帮
+  try{
+    TOASTQ.length=0;clearTimeout(toast._t);toastBusy=false;
+    const te=$('toast');if(te){te.style.display='none';te.innerHTML='';}
+  }catch(e){}
   refreshLangUI();
 }
 function toggleLang(){setLang(window.LANG==='en'?'zh':'en');sfx.ui();}
 function refreshLangUI(){
-  renderTip();
-  $('modalOk').textContent=TT(L('Back (E)','返回 (E)'));
-  $('binClose').textContent=TT(L('Leave (Esc)','离开 (Esc)'));
-  $('mtitle').textContent=TT(L('BIT-9618 FIELD MANUAL','BIT-9618 现场维护手册'));
-  $('mfhint').textContent=TT(L('← → page · M / Esc close','← → 翻页 · M / Esc 合上'));
-  $('mprev').textContent=TT(L('< prev','< 上一页'));
-  $('mnext').textContent=TT(L('next >','下一页 >'));
-  $('asmTitle').textContent=TT(L('PROCESSOR TEMPLE · CPU-9618','处理器神殿 · 终端 CPU-9618'));
-  $('asmGoal').textContent=TT(L('GOAL: make OUT print 42','目标: 让 OUT 输出 42'));
-  $('asmLoad').textContent=TT(L('LOAD ⟲','装载 ⟲'));
-  $('asmStep').textContent=TT(L('STEP ▸','单步 ▸'));
-  $('asmRun').textContent=TT(L('RUN ▸▸','运行 ▸▸'));
-  $('asmMan').textContent=TT(L('Manual (M)','手册 (M)'));
-  $('asmClose').textContent=TT(L('Leave (Esc)','离开 (Esc)'));
-  $('memLabel').textContent=TT(L('MEMORY [0..31]','内存 [0..31]'));
-  $('stLabel').textContent=TT(L('STATUS','状态'));
-  $('mapTitle').textContent=TT(L('SECTOR MAP','区域地图'));
-  $('modHint').textContent=TT(L('M manual · Esc leave','M 手册 · Esc 离开'));
-  if($('intro').style.display!=='none')renderIntro();
-  drawHUD();renderJournal();
-  if(mode==='manual')renderManual();
-  if(mode==='map')renderMap();
-  if(mode==='dialog'&&dlg)renderDialog();
+  // 逐条兜底: 任一静态元素缺失也不阻断后续与 tip/HUD/日志 全量重刷
+  const set=(id,en,zh)=>{try{const el=$(id);if(el)el.textContent=TT(L(en,zh));}catch(e){}};
+  set('modalOk','Back (E)','返回 (E)');
+  set('binClose','Leave (Esc)','离开 (Esc)');
+  set('mtitle','BIT-9618 FIELD MANUAL','BIT-9618 现场维护手册');
+  set('mfhint','← → page · M / Esc close','← → 翻页 · M / Esc 合上');
+  set('mprev','< prev','< 上一页');
+  set('mnext','next >','下一页 >');
+  set('asmTitle','PROCESSOR TEMPLE · CPU-9618','处理器神殿 · 终端 CPU-9618');
+  set('asmGoal','GOAL: make OUT print 42','目标: 让 OUT 输出 42');
+  set('asmLoad','LOAD ⟲','装载 ⟲');
+  set('asmStep','STEP ▸','单步 ▸');
+  set('asmRun','RUN ▸▸','运行 ▸▸');
+  set('asmMan','Manual (M)','手册 (M)');
+  set('asmClose','Leave (Esc)','离开 (Esc)');
+  set('memLabel','MEMORY [0..31]','内存 [0..31]');
+  set('stLabel','STATUS','状态');
+  set('mapTitle','SECTOR MAP','区域地图');
+  set('modHint','M manual · Esc leave','M 手册 · Esc 离开');
+  // 持久显示的 tip 栏 / HUD / 日志 + 当前可见面板/浮层, 各自独立兜底重刷
+  try{renderTip();}catch(e){}
+  try{drawHUD._h=null;drawHUD();}catch(e){}   // 清 diff 缓存, 强制按新语言重画
+  try{renderJournal();}catch(e){}
+  try{if($('intro')&&$('intro').style.display!=='none')renderIntro();}catch(e){}
+  try{if(mode==='manual')renderManual();}catch(e){}
+  try{if(mode==='map')renderMap();}catch(e){}
+  try{if(mode==='dialog'&&dlg)renderDialog();}catch(e){}
 }
 
 /* ---------------- 1b. 按键渐进披露 ----------------
@@ -1322,12 +1331,98 @@ function sceneMove(mv,next){
   const n=findSceneNpc(mv.npcId);
   if(!n){next();return;}
   const kx=state.interior?'x':'tx', ky=state.interior?'y':'ty';
+  // walk:true → 碰撞友好(绕墙寻路 + 避开交互物停靠), 用于引路 NPC 的常规接近/跟随;
+  // 不带 walk → 保留原线性补间(允许演出刻意穿墙飘)
+  if(mv.walk&&!state.interior){return sceneWalk(n,kx,ky,mv,next);}
   const x0=n[kx],y0=n[ky],x1=mv.x,y1=mv.y;
   const steps=Math.max(1,((mv.ms||700)/33)|0);let i=0;
   (function tick(){
     i++;const p=Math.min(1,i/steps);
     n[kx]=x0+(x1-x0)*p; n[ky]=y0+(y1-y0)*p;
     if(p>=1)next(); else setTimeout(tick,33);
+  })();
+}
+/* ---- 引路 NPC(Echo) 碰撞友好移动: 修 ①穿墙 ②停在交互物(及其正上方)遮挡 ----
+   ①绝不穿墙: BFS 只在非固体格上寻路(峡谷很小, 一次性开销);
+   ②停靠避让: 停在玩家侧面 1~2 格空地, 躲开所有可交互物格及其正上方一格
+   (高条贴图向上画会遮挡上方一格) */
+function echoTileSolid(tx,ty){          // 复用玩家同一套碰撞(尊重 curTiles/静态地形)
+  if(tx<0||ty<0||tx>=MW||ty>=MH)return true;
+  return solid((tx+0.5)*CT,(ty+0.5)*CT);
+}
+function echoForbiddenSet(){            // 交互物格 + 其正上方一格 = 停靠禁区
+  const S=new Set(),bar=(tx,ty)=>{S.add(tx+','+ty);S.add(tx+','+(ty-1));};
+  try{
+    (typeof CONSOLES_AS!=='undefined'?CONSOLES_AS:[]).forEach(c=>bar(c.tx,c.ty));
+    (typeof STELES_AS!=='undefined'?STELES_AS:[]).forEach(s=>bar(s.tx,s.ty));
+    (typeof CACHES_AS!=='undefined'?CACHES_AS:[]).forEach(c=>bar(c.tx,c.ty));
+    (typeof HIDDENS_AS!=='undefined'?HIDDENS_AS:[]).forEach(h=>bar(h.tx,h.ty));
+    (typeof MAILBOXES!=='undefined'?MAILBOXES:[]).forEach(b=>bar(b.tx,b.ty));
+    (typeof KDOORS!=='undefined'?KDOORS:[]).forEach(k=>bar(k.tx,k.ty));
+    (typeof RELAY_DOORS!=='undefined'?RELAY_DOORS:[]).forEach(d=>bar(d.tx,d.ty));
+    GATE.forEach(g=>bar(g.x,g.y));DOOR2.forEach(g=>bar(g.x,g.y));
+  }catch(e){}
+  return S;
+}
+function echoDockOk(tx,ty,forbid,pt){
+  if(echoTileSolid(tx,ty))return false;
+  if(forbid.has(tx+','+ty))return false;
+  if(pt&&tx===pt[0]&&ty===pt[1])return false;   // 不站在玩家格上
+  return true;
+}
+function echoPath(sx,sy,gx,gy,forbid){ // BFS 绕墙(4 邻接, 只走非固体格; 途中亦避开交互物禁区)
+  if(sx===gx&&sy===gy)return [[sx,sy]];
+  const seen=new Set([sx+','+sy]),q=[[sx,sy]],prev={};
+  while(q.length){
+    const cur=q.shift();
+    for(const d of [[1,0],[-1,0],[0,1],[0,-1]]){
+      const nx=cur[0]+d[0],ny=cur[1]+d[1],k=nx+','+ny;
+      if(seen.has(k)||echoTileSolid(nx,ny))continue;
+      if(forbid&&forbid.has(k)&&!(nx===gx&&ny===gy))continue;  // 禁区仅终点可落
+      seen.add(k);prev[k]=cur[0]+','+cur[1];
+      if(nx===gx&&ny===gy){
+        const path=[[nx,ny]];let c=k;
+        while(prev[c]){const pp=prev[c].split(',');path.unshift([+pp[0],+pp[1]]);c=prev[c];}
+        return path;
+      }
+      q.push([nx,ny]);
+    }
+  }
+  return null;
+}
+function pickEchoDock(ax,ay,sx,sy,forbid){  // 锚点(玩家格)旁挑合法+可达停靠格
+  forbid=forbid||echoForbiddenSet();const pt=[ax,ay];
+  const cand=[[1,0],[-1,0],[2,0],[-2,0],[1,1],[-1,1],[1,-1],[-1,-1],
+              [0,1],[0,-1],[2,1],[-2,1],[2,-1],[-2,-1],[0,2],[0,-2]];
+  for(const d of cand){
+    const tx=ax+d[0],ty=ay+d[1];
+    if(echoDockOk(tx,ty,forbid,pt)&&echoPath(sx,sy,tx,ty,forbid))return [tx,ty];
+  }
+  for(let r=1;r<=6;r++)for(let dx=-r;dx<=r;dx++)for(let dy=-r;dy<=r;dy++){
+    if(Math.max(Math.abs(dx),Math.abs(dy))!==r)continue;
+    const tx=ax+dx,ty=ay+dy;
+    if(echoDockOk(tx,ty,forbid,pt)&&echoPath(sx,sy,tx,ty,forbid))return [tx,ty];
+  }
+  return null;
+}
+function sceneWalk(n,kx,ky,mv,next){
+  const sx=Math.round(n[kx]),sy=Math.round(n[ky]),forbid=echoForbiddenSet();
+  let ax,ay;
+  if(mv.anchor==='player'){ax=Math.floor(player.x/CT);ay=Math.floor(player.y/CT);}
+  else{ax=Math.round(mv.x);ay=Math.round(mv.y);}
+  const dock=pickEchoDock(ax,ay,sx,sy,forbid)||[sx,sy];
+  const path=echoPath(sx,sy,dock[0],dock[1],forbid);
+  if(!path||path.length<2){n[kx]=dock[0];n[ky]=dock[1];next();return;}
+  const per=Math.max(70,(mv.ms||700)/(path.length-1));
+  let seg=0;
+  (function walkSeg(){
+    if(seg>=path.length-1){n[kx]=path[path.length-1][0];n[ky]=path[path.length-1][1];next();return;}
+    const a=path[seg],b=path[seg+1],steps=Math.max(1,(per/33)|0);let i=0;
+    (function tick(){
+      i++;const p=Math.min(1,i/steps);
+      n[kx]=a[0]+(b[0]-a[0])*p; n[ky]=a[1]+(b[1]-a[1])*p;
+      if(p>=1){seg++;walkSeg();} else setTimeout(tick,33);
+    })();
   })();
 }
 function scenePan(pv,next){
@@ -1793,7 +1888,7 @@ function gateSolved(){
     {run(){doneQuest('m2');}},
     {toast:L('BOOM — the energy gate dissolves into drifting light. The east is open.','轰——能量门散成了光点。东边的世界打开了。'),long:true},
     {wait:350},
-    {move:{npcId:'echo',x:57,y:38.5,ms:900}},
+    {move:{npcId:'echo',x:57,y:38.5,ms:900,walk:true,anchor:'player'}},
     {say:{name:L('Echo','回声'),text:L('You actually read the manual. Most processes just bash the terminal until the Recycler shows up.',
       '你居然真去翻了手册。大多数进程只会砸终端, 砸到回收者上门。')}},
     {run(){state.flags.cpuLit=true;sfx.quest();}},
@@ -4092,6 +4187,98 @@ window.ENG={
       runLightScene('data');
     }
   }catch(e){window.onerror(String(e),'',0);}
+})();
+
+/* ---- Echo 引路 NPC 探针: index.html#echo → 新档模拟移动, 断言 Echo 永不穿墙/不挡交互物 + 语言即时刷新 ---- */
+(function(){
+  if(!/(^|#|&)echo\b/.test(location.hash||''))return;
+  const errs=[];const oldOnerr=window.onerror;
+  window.onerror=function(m,s,l,c,e){errs.push(String(m));if(oldOnerr)try{oldOnerr(m,s,l,c,e);}catch(_){}return false;};
+  window.addEventListener('error',ev=>{errs.push(String(ev.message||ev.error||ev));});
+  const rows=[];const chk=(n,c,x)=>rows.push([n,!!c,x||'']);
+  const tileSolid=(tx,ty)=>(tx<0||ty<0||tx>=MW||ty>=MH)||MAPAS[ty][tx]===2||MAPAS[ty][tx]===3||MAPAS[ty][tx]===6;
+  const render=()=>{
+    let ov=$('echoProbe');
+    if(!ov){ov=document.createElement('div');ov.id='echoProbe';
+      ov.style.cssText='position:fixed;inset:0;z-index:99999;background:#04060a;color:#cde;font:15px/1.55 Consolas,monospace;padding:20px;white-space:pre-wrap';
+      (function add(){if(document.body)document.body.appendChild(ov);else setTimeout(add,50);})();}
+    ov.innerHTML='<div style="font-size:20px;margin-bottom:10px">ECHO NPC PROBE</div>'+
+      rows.map(r=>'<div style="color:'+(r[1]?'#7CFC00':'#ff5a5a')+'">'+(r[1]?'PASS':'FAIL')+'  '+r[0]+
+        (r[2]?('  <span style="color:#889">'+String(r[2]).replace(/</g,'&lt;')+'</span>'):'')+'</div>').join('');
+    document.title='ECHO '+(rows.every(r=>r[1])?'PASS':'FAIL');
+  };
+  try{
+    if(hasSave())wipeSave();
+    newGame();let g=0;while(dlg&&g++<30)advanceDialog();sceneActive=false;
+    state.gate=true;openGateTiles();                 // Echo 接近发生在解二进制门之后
+    const forbid=echoForbiddenSet();
+    const start=[45,42];                             // Echo 家(出生室)
+    const anchors=[];                               // 模拟玩家可能站的所有峡谷弯厅格
+    for(let y=36;y<=47;y++)for(let x=48;x<=62;x++)if(!tileSolid(x,y))anchors.push([x,y]);
+    let badDock=0,badPath=0,tested=0,noDock=0,sample='';
+    anchors.forEach(a=>{
+      const dock=pickEchoDock(a[0],a[1],start[0],start[1],forbid);
+      if(!dock){noDock++;if(!sample)sample='no dock @'+a;return;}
+      tested++;
+      if(tileSolid(dock[0],dock[1])||forbid.has(dock[0]+','+dock[1])||(dock[0]===a[0]&&dock[1]===a[1])){
+        badDock++;if(!sample)sample='bad dock '+dock+' @'+a;}
+      const path=echoPath(start[0],start[1],dock[0],dock[1],forbid);
+      if(!path){badPath++;if(!sample)sample='no path @'+a;return;}
+      for(const p of path){
+        const isEnd=(p[0]===dock[0]&&p[1]===dock[1]);
+        if(tileSolid(p[0],p[1])){badPath++;if(!sample)sample='SOLID tile '+p+' @'+a;break;}
+        if(!isEnd&&forbid.has(p[0]+','+p[1])){badPath++;if(!sample)sample='FORBID tile '+p+' @'+a;break;}
+      }
+    });
+    chk('峡谷 '+anchors.length+' 锚点全有停靠格(不孤立)', noDock===0, sample);
+    chk('停靠格合法(非墙/非交互物/非玩家格)', badDock===0, sample);
+    chk('全路径不穿墙 & 途中不过交互物禁区', badPath===0, sample);
+    let hitGate=false;
+    anchors.forEach(a=>{const d=pickEchoDock(a[0],a[1],start[0],start[1],forbid);if(d&&d[0]===56&&(d[1]===39||d[1]===38))hitGate=true;});
+    chk('永不停在 gatecon(56,39)及正上方(56,38)', !hitGate);
+    // 语言即时刷新: tip 栏 + HUD 目标行
+    running=true;setMode('play');
+    setLang('en');const tipEn=$('tip').textContent,objEn=($('hudObj')||{}).textContent||'';
+    setLang('zh');const tipZh=$('tip').textContent,objZh=($('hudObj')||{}).textContent||'';
+    const cjk=s=>/[一-鿿]/.test(s);
+    chk('切 zh: tip 栏立即变中文', cjk(tipZh)&&tipZh!==tipEn, tipZh);
+    chk('切 zh: HUD 目标行立即变中文', cjk(objZh), objZh);
+    setLang('en');const tipEn2=$('tip').textContent,objEn2=($('hudObj')||{}).textContent||'';
+    chk('切回 en: tip 栏无汉字', !cjk(tipEn2), tipEn2);
+    chk('切回 en: HUD 目标行无汉字', !cjk(objEn2), objEn2);
+    chk('切换语言清空 toast 队列', (window.TOASTQ?window.TOASTQ.length:0)===0);
+    chk('开场自动按 E 无 JS 错误', errs.length===0, errs.join(' | '));
+    render();
+    // 端到端: 真实驱动 gateSolved 的 Echo 接近, 演出结束后复核 Echo 落点
+    const echo=curNpcs().find(n=>n.id==='echo');
+    echo.tx=start[0];echo.ty=start[1];
+    player.x=(56+0.5)*CT;player.y=(40+0.5)*CT;       // 玩家站门控终端旁
+    sceneActive=true;
+    sceneWalk(echo,'tx','ty',{x:57,y:38.5,ms:600,walk:true,anchor:'player'},()=>{
+      sceneActive=false;
+      const tx=echo.tx,ty=echo.ty,rt=[Math.round(tx),Math.round(ty)];
+      const ok=!tileSolid(rt[0],rt[1])&&!forbid.has(rt[0]+','+rt[1]);
+      chk('端到端: Echo 实际落点合法 = '+rt, ok, '');
+      chk('端到端: Echo 落点非门控终端上方', !(rt[0]===56&&(rt[1]===38||rt[1]===39)));
+      render();
+    });
+  }catch(e){chk('EXCEPTION',false,String(e&&e.stack||e));render();}
+})();
+
+/* ---- Echo 目检视图: index.html#echoview → 布好"门开+Echo已停靠"态, 正常渲染供截图看门控终端 ---- */
+(function(){
+  if(!/(^|#|&)echoview\b/.test(location.hash||''))return;
+  try{
+    if(hasSave())wipeSave();
+    newGame();let g=0;while(dlg&&g++<30)advanceDialog();sceneActive=false;
+    state.tut=4;state.gate=true;openGateTiles();
+    state.flags.revealDone=true;state.flags.refIntro=true;state.flags.mapUnlock=true;
+    const echo=curNpcs().find(n=>n.id==='echo');
+    player.x=56.5*CT;player.y=40.5*CT;                        // 玩家站门控终端 gatecon(56,39) 旁
+    const forbid=echoForbiddenSet(),dock=pickEchoDock(56,40,45,42,forbid)||[58,40];
+    echo.tx=dock[0];echo.ty=dock[1];                          // Echo 停在算出的合法侧位
+    running=true;setMode('play');markExplored();drawHUD();
+  }catch(e){try{window.onerror(String(e),'',0);}catch(_){}}
 })();
 
 /* ---- 峡谷密封探针: index.html#canyon → 新档 BFS 洪泛验证出生峡谷是否只有设计出口 ---- */
