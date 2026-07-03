@@ -267,7 +267,7 @@ function drawNPC(ctx,x,y,size,kind,t,world){
     r(rgba(p.acc,0.22*gl),11,1.6+b,5,5.4);                 // 灯晕
   }
   else if(kind==='echo'){                                  // 残响(半透明, 无腿)
-    const fl=0.62+0.28*Math.sin(t/130);
+    const fl=0.72+0.11*Math.sin(t/560);                    // J批: 慢呼吸(≤缓慢渐变), 不再像提示信号频闪
     ctx.save(); ctx.globalAlpha=fl;
     r(p.bg,4,2+b,8,11);
     r(p.hi2,5,3+b,6,4);                                    // 头
@@ -1174,7 +1174,7 @@ function drawNPC2(ctx,x,y,size,kind,t,world){
     r(p.g0,4,13.6,8,1.4); r(rgba(p.bg,0.25),4,13.6,8,1.4); // 触地
   }
   else if(kind==='echo'){                                  // 残响: 半透明幽灵
-    const fl=0.62+0.28*Math.sin(t/130);
+    const fl=0.72+0.11*Math.sin(t/560);                    // J批: 慢呼吸(≤缓慢渐变), 不再像提示信号频闪
     ctx.save(); ctx.globalAlpha=fl;
     r(p.bg,3.4,1.4+b,9.2,8.4);                             // 大头描边
     r(p.hi2,4.3,2+b,7.4,5.4);

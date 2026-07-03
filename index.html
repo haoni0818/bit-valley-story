@@ -700,6 +700,7 @@ const state={
   chapSeen:0,            // 已看过的教师解锁章节数 (新章苏醒演出只放一次)
   letters:[],            // 维护者的信 (CO-7, 动态追加)
   unlocked:{},           // 按键渐进披露: 已解锁的功能键集 (只加字段, 老档 inferUnlocks 反推)
+  accepted:{},           // 任务准入铁律(J批): 显式接受过的模块任务 qid 集 (只加字段; 老档缺省={}, 靠 mq 进度反推)
   px:42.5*TILE, py:43*TILE
 };
 const EXP={as:new Set(),a2:new Set()};
@@ -924,12 +925,16 @@ function openDoor2Tiles(){DOOR2.forEach(g=>{if(MAPAS[g.y])MAPAS[g.y][g.x]=4;});i
        + 3 风味废墟 + 重启塔 + 传送门
    章节顺序(全 UI 贯彻): 1 数据表示馆§1 → 2 逻辑门锻造厂§3 → 3 核心机房§4
                         → 4 安全哨站§6 → 5 算法竞技场§8/9 → 6 内存迷宫§10 */
+/* 前期线性动线(J批): 出峡谷(西坡道→(36,12))后沿 x26 主干道单方向南下, 依次遇到
+   Ch1 数据馆(24,14) → Ch2 逻辑厂(24,26) → Ch3 核心机房(24,38)(道路引导, 不回头);
+   Ch4-6(安全/算法/内存)及主题馆在中后段的开放区展开(线性→开放, BotW 揭幕高地节奏)。
+   坐标改动后跑 #canyon(峡谷密封)+ #reach(各建筑可达 BFS) 双探针把关。 */
 const REALMS_AS=[
   {id:'cpu',   kind:'asm', art:'cpu',   tx:54,ty:19,name:L('Processor Temple','处理器神殿'),topic:L('Prologue · Assembly (manual §3)','序章 · 汇编 (手册§3)')},
-  {id:'data',  mod:'data', ch:1, art:'beacon',tx:10,ty:22,name:L('Ch.1 · Museum of Data','第1章 · 数据表示馆'),topic:L('§1 Information Representation','§1 信息表示')},
+  {id:'data',  mod:'data', ch:1, art:'beacon',tx:24,ty:14,name:L('Ch.1 · Museum of Data','第1章 · 数据表示馆'),topic:L('§1 Information Representation','§1 信息表示')},
   {id:'med',   mod:'med',  art:'beacon',tx:8, ty:34,name:L('The Gallery of Lost Fidelity','失真画廊'),topic:L('§1.3 Images · §1.4 Sound · Compression','§1.3 图像 · §1.4 声音 · 压缩')},
-  {id:'logic', mod:'logic',ch:2, art:'logic', tx:26,ty:8, name:L('Ch.2 · Logic Gate Foundry','第2章 · 逻辑门锻造厂'),topic:'§3 Logic Gates'},
-  {id:'vault', mod:'asm',  ch:3, art:'cpu',   tx:78,ty:20,name:L('Ch.3 · The Core Vault','第3章 · 核心机房'),topic:L('§4 Processor & Assembly','§4 处理器与汇编')},
+  {id:'logic', mod:'logic',ch:2, art:'logic', tx:24,ty:26, name:L('Ch.2 · Logic Gate Foundry','第2章 · 逻辑门锻造厂'),topic:'§3 Logic Gates'},
+  {id:'vault', mod:'asm',  ch:3, art:'cpu',   tx:24,ty:38,name:L('Ch.3 · The Core Vault','第3章 · 核心机房'),topic:L('§4 Processor & Assembly','§4 处理器与汇编')},
   {id:'sec',   mod:'sec',  ch:4, art:'os',    tx:62,ty:52,name:L('Ch.4 · Firewall Bastion','第4章 · 安全哨站'),topic:L('§6 Data Security','§6 数据安全')},
   {id:'algo',  mod:'algo', ch:5, art:'algo',  tx:78,ty:42,name:L('Ch.5 · Algorithm Arena','第5章 · 算法竞技场'),topic:L('§8/9 Algorithms','§8/9 算法')},
   {id:'memory',mod:'memory',ch:6,art:'db',    tx:20,ty:50,name:L('Ch.6 · Memory Maze','第6章 · 内存迷宫'),topic:L('§10 ADT (Stack · List …)','§10 抽象数据类型')},
@@ -1056,9 +1061,9 @@ const MAILBOXES=[
 /* --- CO-1 「懂即通行」知识直答门: 每编号领域门口一扇, 不需要任何前置,
        真的懂 = 第 1 分钟就能拿走隐藏发现 (sequence break 奖励真实知识) --- */
 const KDOORS=[
-  {mod:'data',  tx:12,ty:24,q:L('Direct answer: 0xC3 in decimal?','直答: 0xC3 换成十进制是多少?'),a:['195']},
-  {mod:'logic', tx:28,ty:10,q:L('Direct answer: NAND(1,1) = ?','直答: NAND(1,1) = ?'),a:['0']},
-  {mod:'asm',   tx:80,ty:22,q:L('Direct answer: IX=5 — which cell does LDX 10 read?','直答: IX=5 时, LDX 10 读几号内存格?'),a:['15']},
+  {mod:'data',  tx:26,ty:15,q:L('Direct answer: 0xC3 in decimal?','直答: 0xC3 换成十进制是多少?'),a:['195']},
+  {mod:'logic', tx:26,ty:27,q:L('Direct answer: NAND(1,1) = ?','直答: NAND(1,1) = ?'),a:['0']},
+  {mod:'asm',   tx:26,ty:39,q:L('Direct answer: IX=5 — which cell does LDX 10 read?','直答: IX=5 时, LDX 10 读几号内存格?'),a:['15']},
   {mod:'sec',   tx:64,ty:54,q:L('Direct answer: fake domain paypa1.com — phishing or pharming?','直答: 仿冒域名 paypa1.com 属于哪类攻击? (phishing/pharming)'),a:['phishing','钓鱼']},
   {mod:'algo',  tx:80,ty:44,q:L('Direct answer: binary search on 1024 sorted items — worst-case comparisons?','直答: 对 1024 个有序元素做二分查找, 最坏比较几次?'),a:['10']},
   {mod:'memory',tx:22,ty:52,q:L('Direct answer: push 1,2,3 on a stack, pop twice — the 2nd pop gives?','直答: 栈依次压入 1,2,3, 连续弹出两次——第二次弹出的是?'),a:['2']},
@@ -1511,6 +1516,18 @@ function toggleJournal(){
   if(journalOpen&&state.tut===3)tutJournalOpened();
 }
 function stepStateOf(q){const s=state.mq[q.id];return s||{steps:{},done:false};}
+/* 任务准入铁律(J批): 模块任务只有被"接受/亲手推进"后才进 J。
+   接受 = 该任务已 done, 或已有 ≥1 个 step 被亲手完成(对话选择/解谜/发现隐藏物都走 modCompleteStep)。
+   仅进馆(visited_)不再算接受 → 消灭"莫名其妙多出的任务"。老档零进度未接受任务自动不显示(等于清退)。 */
+function mqEngaged(qid){
+  const st=state.mq[qid];
+  if(!st)return false;
+  if(st.done)return true;
+  const s=st.steps||{};
+  for(const k in s)if(s[k])return true;
+  return !!(state.accepted&&state.accepted[qid]);
+}
+function markAccepted(qid){if(!state.accepted)state.accepted={};state.accepted[qid]=true;}
 function journalEntries(){
   const act=[],doneL=[];
   const fb=(qid)=>' <span class="jfb" data-qid="'+esc(qid)+'" title="'+TT(L('board','留言板'))+'">💬</span>';
@@ -1530,6 +1547,7 @@ function journalEntries(){
   MODLIST.forEach(m=>{
     if(!state.flags['visited_'+m.id])return;
     (m.quests||[]).forEach(q=>{
+      if(!mqEngaged(q.id))return;    // 铁律: 未接受(零进度)的任务不进 J
       const st=stepStateOf(q),sec=(q.line==='main')?'main':(q.line==='hidden'?'hidden':'side');
       let h='<div class="q '+(st.done?'done':'')+'">'+TT(q.title)+' <span class="dim" style="font-size:10px">['+TT(m.title)+']</span>'+(st.done?fb(q.id):'')+'</div>';
       if(!st.done)(q.steps||[]).forEach(sp=>{h+='<div class="st'+(st.steps[sp.id]?' done':'')+'">'+TT(sp.text)+'</div>';});
@@ -1753,20 +1771,25 @@ Your current tile shows at the bottom-left HUD.</pre>
 <h4>§5.0 What REF is</h4>
 REF is how much of you this world still <b>refers to</b> — your lifeline here (top-left gauge).
 <h4>§5.1 The rules</h4>
-<pre>· It drains slowly over time. (This machine is slowly forgetting you.)
-· Doing things refills it: quests, puzzles, steles, caches — being needed.
+<pre>· It is EVENT-DRIVEN. There is no timer — it never drains on its own.
+· It rises when you matter: quests, puzzles, steles, caches, exploring new ground.
+· It only falls if you grind the same puzzle repeatedly, or step into a
+  corrosion zone (you always get a clear warning before one).
 · At 0 the Recycler collects you. You wake in the Recycle Bin at REF 20.
-· No progress is ever lost. Being collected costs time, not memory.</pre>
+· No progress is ever lost. Being collected costs time, not memory.
+· In normal play, hitting 0 is almost impossible. Don't watch the bar — just play.</pre>
 <h4>§5.2 Field advice</h4>
 <pre>Stay referenced. Refer to others. That is also the machine's ending, by the way.</pre>
 <div class="warnbox">⚠ Maintenance note #058: REF is life. The grey one with the sickle-pointer only collects what nothing refers to.</div>`,`
 <h4>§5.0 REF 是什么</h4>
 REF = 这个世界还有多少东西在<b>引用</b>你 —— 你在这里的生命线(左上角 REF 条)。
 <h4>§5.1 规则</h4>
-<pre>· 它随时间缓慢流失。(这台机器在慢慢忘记你。)
-· 做事就会回填: 任务、谜题、石碑、缓存箱——去被需要。
+<pre>· 它是事件驱动的。没有倒计时——绝不会自己往下掉。
+· 被需要就往上走: 任务、谜题、石碑、缓存箱、探索新区域。
+· 只有当你反复磕同一道谜题、或踏进腐蚀区(进去前一定会先给你明确预警)时才会下降。
 · 归零时回收者会把你收走。你会在回收站以 REF 20 醒来。
-· 进度永远不丢。被回收只花时间, 不删记忆。</pre>
+· 进度永远不丢。被回收只花时间, 不删记忆。
+· 常规玩法里归零几乎不可能。别盯着那根条——只管玩。</pre>
 <h4>§5.2 现场建议</h4>
 <pre>保持被引用, 也去引用别人。顺便说一句, 这也是这台机器结局的解法。</pre>
 <div class="warnbox">⚠ 维修记录 #058: REF 即生命。那个拿镰刀指针的灰袍, 只收无人引用之物。</div>`)},
@@ -2115,6 +2138,7 @@ function reevalSteps(){
     if(!state.flags['visited_'+m.id])return;
     (m.quests||[]).forEach(q=>{
       const st=state.mq[q.id];if(st&&st.done)return;
+      if(!mqEngaged(q.id))return;    // 铁律: 未接受的任务不做 onEnter 自动推进(否则=进馆即挂主线)
       (q.steps||[]).forEach(sp=>{
         if(st&&st.steps[sp.id])return;
         if(typeof sp.check==='function'){
@@ -2189,6 +2213,8 @@ const api={
   onFail(pid){ // 失败计数钩子: 模块读 getFlag('fail_'+pid); 顺带上报教师面板「需要关注」
     const k='fail_'+pid;state.flags[k]=(state.flags[k]||0)+1;save();
     try{reportHint(pid,state.flags[k],false);}catch(e){}
+    // REF 去焦虑: 事件驱动 − 只在"连续失败同一谜题"时轻微扣(每第 3 次 −2), 远小于解题/探索的回填 → 常规玩法难归零
+    if(state.flags.refIntro&&state.flags[k]%3===0)refAdd(-2);
     return state.flags[k];
   },
   teleport(tx,ty){player.x=(tx+0.5)*CT;player.y=(ty+0.5)*CT;},
@@ -2213,6 +2239,7 @@ function setContext(){
   }
   try{document.body.classList.toggle('world-a2',WORLD==='a2');}catch(e){}
   if(typeof invalidateTerrainCache==='function')invalidateTerrainCache();
+  fogDirty=true;   // 世界/室内切换 → 战争迷雾重建
 }
 function curRealms(){return state.world==='a2'?REALMS_A2:REALMS_AS;}
 function curNpcs(){return state.world==='a2'?NPCS_A2:NPCS_AS;}
@@ -2545,7 +2572,9 @@ function refAdd(n){
   if(state.ref<=0&&state.interior!=='__recycler'&&running)enterRecycler();
   save();
 }
-setInterval(()=>{if(running&&mode!=='intro'&&!sceneActive&&state.flags.refIntro)refAdd(-1);},90000);
+/* REF 去焦虑化(J批): 取消随时间的被动衰减。REF 现在纯事件驱动 —— 完成任务/谜题/探索新区 +,
+   连续失败同一谜题 −(见 api.onFail)。常规玩法几乎不可能归零, 但归零仍进回收站(剧情钩子保留)。 */
+
 function gcEvent(stage){
   glitchPow=0.8;glitchUntil=performance.now()+800;sfx.glitch();
   const say1=L('(static floods your vision for a second — far away, something grey turns its head toward you)<br><span class="k">REF is dropping.</span> The Recycler collects whatever nothing refers to. Do things. Solve things. Matter.',
@@ -2721,8 +2750,21 @@ function relayUse(d){
   }).catch(()=>{toast(L('(network unreachable)','(网络不可达)'));});
 }
 /* --- CO-1 知识直答门 --- */
+/* CO-1 直答暗门开关冗余修复(J批): 直答后门的存在前提 = 对应章节门"锁着"(教师闸门 / 前置未完成)。
+   门本来就能进时(unlockOk 通过且教师闸门放行), 隐藏开关(不渲染/不可交互/地图不画点) —— 消灭"多此一举"。 */
+function kdoorLive(k){
+  if(state.flags['kdoor_'+k.mod])return false;                 // 已用过后门 → 不再需要
+  const m=MODS[k.mod], r=REALMS_AS.find(x=>x.mod===k.mod);
+  const locked=!m||!unlockOk(m.unlock)||(r&&r.ch&&teacherChapter!=null&&r.ch>teacherChapter);
+  return !!locked;                                              // 只有门锁着时后门才存在
+}
 function kdoorUse(k){
   const flag='kdoor_'+k.mod;
+  if(!kdoorLive(k)){                                            // 兜底: 门已开则后门无意义
+    showModal(L('[Knowledge Door]','【知识直答门】'),
+      L('This door already recognises you — just walk in through the front.','这扇门已经认你了——直接从正门进就行。'));
+    return;
+  }
   if(state.flags[flag]){
     showModal(L('[Knowledge Door]','【知识直答门】'),
       L('It already knows you know. The little hatch stays open for you.','它已经知道你懂了。小暗门为你常开。'));
@@ -2730,10 +2772,10 @@ function kdoorUse(k){
   }
   openPuzzle({
     id:'kdoor_'+k.mod,
-    title:L('KNOWLEDGE DOOR — answer, no prerequisites','知识直答门 —— 直接作答, 没有任何前置'),
+    title:L('KNOWLEDGE DOOR — the back door for the impatient','知识直答门 —— 给等不及的人准备的后门'),
     render(el){
-      el.innerHTML='<p>'+TT(L('A hard question is carved straight into the door. No quest chain. No hints. If you already know — the world opens early for you.',
-        '门上直接刻着一道硬核问题。没有任务链, 没有提示。你要是早就懂——世界会提前为你打开。'))+'</p>'+
+      el.innerHTML='<p>'+TT(L('This district is still sealed for you. But there is a back door for people who can\'t wait: answer one hard question, and the door recognises you. No quest chain, no hints.',
+        '这个领域对你还是封着的。但这里有一扇给等不及的人准备的后门: 答对一道硬核问题, 门就认你。没有任务链, 没有提示。'))+'</p>'+
         '<p class="k" style="font-size:15px">'+TT(k.q)+'</p>'+
         '<input id="kdIn" style="width:60%;background:#060d06;color:#aef0ae;border:1px solid #2f6f2f;font-family:inherit;font-size:14px;padding:5px 8px"> '+
         '<button class="btn" id="kdGo">'+TT(L('Answer','作答'))+'</button>'+
@@ -3097,8 +3139,8 @@ function refIntroShow(){
     {sfx:'glitch'},{glitch:0.45,ms:400},
     {say:{name:L('Echo','回声'),text:L('Stop. Look at the top-left. That bar just started counting — it\'s called <span class="k">REF, your reference count</span>: how much of this world still refers to you. Here, that IS your lifeline.',
       '停一下。看左上角。那根条刚刚开始计数——它叫 <span class="k">REF, 引用计数</span>: 这个世界还有多少东西在引用你。在这里, 它就是你的命。')}},
-    {say:{name:L('Echo','回声'),text:L('It drains as time passes — this machine is slowly forgetting you. Quests, puzzles, steles, caches refill it: <span class="k">be needed, stay alive</span>. At zero, the Recycler collects you. You\'d wake in the Recycle Bin. Annoying, not fatal — nothing is ever deleted.',
-      '它会随时间流失——这台机器在慢慢忘记你。任务、谜题、石碑、缓存箱都能回填它: <span class="k">被需要, 就活着</span>。归零时, 回收者会把你收走, 你会在回收站醒来。麻烦, 但不致命——你的任何进度都不会被删。')}},
+    {say:{name:L('Echo','回声'),text:L('It doesn\'t bleed out on a clock — <span class="k">what you do moves it</span>. Quests, puzzles, steles, caches, walking into somewhere new: all push it up. Being needed keeps it high. The only things that pull it down are grinding the same puzzle into the ground, or wandering into a corrosion zone (I\'ll warn you first). At zero the Recycler collects you and you wake in the Recycle Bin — annoying, not fatal, nothing is ever deleted. Honestly? Just play, and you\'ll almost never see it fall.',
+      '它不会照着钟表流干——<span class="k">是你做的事在推它</span>。任务、谜题、石碑、缓存箱、走进一片没去过的地方: 都会把它顶上去。被需要, 它就高。真正会拉低它的, 只有把同一道谜题往死里磕、或者一头撞进腐蚀区(我会先提醒你)。归零时回收者会把你收走, 你会在回收站醒来——麻烦, 但不致命, 你的任何进度都不会被删。说真的? 你只管玩, 基本看不到它往下掉。')}},
     {run(){
       toast(L('◈ REF gauge online — full notes in Manual §5 (press M). Click the bar for a quick recap.','◈ REF 引用计数已上线 —— 详细说明在手册 §5 (按 M)。点 REF 条可随时速览。'),true);
     }},
@@ -3170,27 +3212,30 @@ function cacheUse(c){
 function revealScene(){
   if(state.flags.revealDone)return;
   state.flags.revealDone=true;save();
+  /* 揭幕巡礼一笔画(J批): 相机沿主干道单向巡礼, 不回头 ——
+     出口→西列(Ch1→Ch2→驿站→Ch3)→南沿(内存→安全)→东侧上行(算法→重启塔)。
+     顺序按空间最近邻(与前期线性布局联动), 与 REALMS_AS 坐标保持一致。 */
   runScene([
     {sfx:'quest'},
-    {say:{name:L('Echo','回声'),text:L('Welcome to the Overworld. Every light you see is something the machine refuses to forget. Six numbered districts — the numbers are a <span class="k">recommended reading order</span>, not a cage.',
-      '欢迎来到主世界。你看到的每一盏灯, 都是这台机器不肯忘记的东西。六个编号领域——编号是<span class="k">推荐的阅读顺序</span>, 不是笼子。')}},
-    {pan:{x:10,y:22,ms:1400}},
+    {say:{name:L('Echo','回声'),text:L('Welcome to the Overworld. Every light you see is something the machine refuses to forget. The road ahead runs one way for a while — I\'ll walk you down it. The numbers are a <span class="k">recommended reading order</span>, not a cage.',
+      '欢迎来到主世界。你看到的每一盏灯, 都是这台机器不肯忘记的东西。前面这条路先是单向的——我带你走一遍。编号是<span class="k">推荐的阅读顺序</span>, 不是笼子。')}},
+    {pan:{x:24,y:14,ms:1300}},
     {toast:L('Ch.1 · Museum of Data — where information learned to be numbers (§1)','第1章 · 数据表示馆 —— 信息学会变成数字的地方 (§1)'),long:true},{wait:650},
-    {pan:{x:26,y:8,ms:1200}},
+    {pan:{x:24,y:26,ms:1200}},
     {toast:L('Ch.2 · Logic Gate Foundry — the furnace only speaks NAND (§3)','第2章 · 逻辑门锻造厂 —— 主炉只说 NAND (§3)'),long:true},{wait:650},
-    {pan:{x:78,y:20,ms:1400}},
+    {pan:{x:30,y:26,ms:800}},
+    {toast:L('…and just off the road, the Cache Inn: a wayside inn, no numbers, stories only.','……路边就是缓存驿站: 不编号的客栈, 只有故事。'),long:true},{wait:500},
+    {pan:{x:24,y:38,ms:1100}},
     {toast:L('Ch.3 · The Core Vault — an 8-level assembly campaign (§4)','第3章 · 核心机房 —— 八关汇编战役 (§4)'),long:true},{wait:650},
-    {pan:{x:62,y:52,ms:1400}},
-    {toast:L('Ch.4 · Firewall Bastion — hold the line against phish & malware (§6)','第4章 · 安全哨站 —— 挡住钓鱼和恶意软件 (§6)'),long:true},{wait:650},
-    {pan:{x:78,y:42,ms:1100}},
-    {toast:L('Ch.5 · Algorithm Arena — unsorted stairs, next year\'s preview (§8/9)','第5章 · 算法竞技场 —— 未排序的石阶, 下学年预习 (§8/9)'),long:true},{wait:650},
-    {pan:{x:20,y:50,ms:1400}},
+    {pan:{x:20,y:50,ms:1200}},
     {toast:L('Ch.6 · Memory Maze — borrow & return, next year\'s preview (§10)','第6章 · 内存迷宫 —— 借与还, 下学年预习 (§10)'),long:true},{wait:650},
-    {pan:{x:30,y:26,ms:1100}},
-    {toast:L('…and the Cache Inn: a wayside inn, no numbers, stories only.','……以及缓存驿站: 路边客栈, 不编号, 只有故事。'),long:true},{wait:500},
-    {pan:{x:76,y:31,ms:1100}},{wait:300},
-    {say:{name:L('Echo','回声'),text:L('And that tower with the eight chain-locks… that\'s where we end this. One day. Start with <span class="k">Chapter 1, west</span> — or don\'t. Your call, maintainer.',
-      '还有那座缠着八道锁链的塔……总有一天, 我们在那里结束这一切。建议从<span class="k">第1章·正西</span>开始——不听建议也行。你说了算, 维护者。')}},
+    {pan:{x:62,y:52,ms:1600}},
+    {toast:L('Ch.4 · Firewall Bastion — hold the line against phish & malware (§6)','第4章 · 安全哨站 —— 挡住钓鱼和恶意软件 (§6)'),long:true},{wait:650},
+    {pan:{x:78,y:42,ms:1300}},
+    {toast:L('Ch.5 · Algorithm Arena — unsorted stairs, next year\'s preview (§8/9)','第5章 · 算法竞技场 —— 未排序的石阶, 下学年预习 (§8/9)'),long:true},{wait:650},
+    {pan:{x:76,y:30,ms:1100}},{wait:300},
+    {say:{name:L('Echo','回声'),text:L('And that tower with the eight chain-locks… that\'s where we end this. One day. The path back there loops home on its own — but start with <span class="k">Chapter 1, just west of here</span>. Or don\'t. Your call, maintainer.',
+      '还有那座缠着八道锁链的塔……总有一天, 我们在那里结束这一切。这条路会自己绕回起点——不过建议从<span class="k">第1章·就在西边</span>开始。不听也行。你说了算, 维护者。')}},
     {panReset:true},
     {run(){state.flags.mapUnlock=true;save();
       unlockFeature('map');                          // 揭幕 → 解锁 地图[Tab] + 扫描[Q]
@@ -3264,7 +3309,16 @@ function markExplored(){
   if(state.interior)return;
   const tx=(player.x/CT)|0,ty=(player.y/CT)|0,cx=(tx/6)|0,cy=(ty/6)|0;
   const S=EXP[state.world];
-  for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)S.add((cx+dx)+','+(cy+dy));
+  let added=0;
+  for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+    const k=(cx+dx)+','+(cy+dy);
+    if(!S.has(k)){S.add(k);added++;}
+  }
+  if(added){
+    fogDirty=true;                                   // 主视角战争迷雾: 探索集变了 → 雾层局部失效重建
+    // REF 事件驱动 +: 探索到新区域(轻量, 不弹 toast/不逐帧 save; 由后续 save 事件落盘)
+    if(state.flags.refIntro)state.ref=Math.min(100,(state.ref==null?100:state.ref)+added);
+  }
 }
 function mapZones(){
   if(state.world==='as'){
@@ -3314,7 +3368,7 @@ function renderMap(){
   if(state.world==='as'){
     STELES_AS.forEach(st=>dot(st.tx,st.ty,!state.steles.includes(st.id),'#ffd45e'));
     CONSOLES_AS.forEach(c=>dot(c.tx,c.ty,true,'#7ad8e8'));
-    KDOORS.forEach(k=>dot(k.tx,k.ty,!state.flags['kdoor_'+k.mod],'#7ad8e8'));
+    KDOORS.forEach(k=>{if(kdoorLive(k))dot(k.tx,k.ty,true,'#7ad8e8');});   // 只画锁着章节的后门
     RELAY_DOORS.forEach(d=>dot(d.tx,d.ty,!state.flags['relay_open_'+d.id],'#c86bff'));
   }else{
     STELES_A2.forEach(st=>dot(st.tx,st.ty,!state.steles.includes(st.id),'#ffd45e'));
@@ -3473,6 +3527,40 @@ function drawTileAny(tt,sx,sy,t,x,y,g){
    只在 ①镜头移出缓存覆盖区 ②世界/室内切换 ③低频动画 tick(~200ms) 时重建;
    主帧只 drawImage 一次。立着的墙/岩(tall wall)仍每帧入 E 参与遮挡排序。 */
 const TCACHE={cv:null,g:null,bcv:null,bg:null,cx0:0,cy0:0,cx1:0,cy1:0,world:'',tick:-1,ready:false};
+/* ===== 主视角战争迷雾 (J批): 未探索 chunk 在主画面暗化/雾化 =====
+   低分辨率离屏(1 像素 = 1 chunk = 6 格) → 每帧放大绘制(imageSmoothing=on → 天然柔边),
+   不逐格画; 探索集变化时(markExplored 置 fogDirty)才重建离屏。静态地形缓存不受影响(雾是独立叠层)。*/
+var fogDirty=true;
+const FOG={cv:null,g:null,world:'',cw:0,ch:0};
+function fogOn(){return window.__FOG_OFF!==true;}
+function buildFogMask(){
+  const w=(state.world==='a2')?A2W:ASW, h=(state.world==='a2')?A2H:ASH;
+  const cw=Math.ceil(w/6), ch=Math.ceil(h/6);          // chunk 分辨率
+  if(!FOG.cv){FOG.cv=document.createElement('canvas');FOG.g=FOG.cv.getContext('2d');}
+  if(FOG.cw!==cw||FOG.ch!==ch){FOG.cv.width=cw;FOG.cv.height=ch;FOG.cw=cw;FOG.ch=ch;}
+  const g=FOG.g;g.clearRect(0,0,cw,ch);
+  const S=EXP[state.world];
+  for(let cy=0;cy<ch;cy++)for(let cx=0;cx<cw;cx++){
+    // 已探索 chunk → 透明(不遮); 未探索 → 暗雾 (含 8 邻域半探索柔化)
+    if(S.has(cx+','+cy))continue;
+    let near=false;
+    for(let dy=-1;dy<=1&&!near;dy++)for(let dx=-1;dx<=1;dx++)if(S.has((cx+dx)+','+(cy+dy))){near=true;break;}
+    g.fillStyle=near?'rgba(4,7,12,0.60)':'rgba(3,5,9,0.90)';   // 迷雾边缘半透, 深处近全黑
+    g.fillRect(cx,cy,1,1);
+  }
+  FOG.world=state.world;fogDirty=false;
+}
+function drawFog(cam){
+  if(!fogOn()||state.interior)return;                  // 室内无战争迷雾
+  if(fogDirty||FOG.world!==state.world||!FOG.cv)buildFogMask();
+  if(!FOG.cv)return;
+  const sm=ctx.imageSmoothingEnabled;
+  ctx.imageSmoothingEnabled=true;                       // 放大时柔化 → 雾边自然渐变(不是格子块)
+  // 离屏每像素=6格=6*CT 世界像素; 贴到屏幕坐标 (chunk*6*CT - cam)
+  const sx=-cam.x, sy=-cam.y, sw=FOG.cw*6*CT, sh=FOG.ch*6*CT;
+  ctx.drawImage(FOG.cv,0,0,FOG.cw,FOG.ch,sx,sy,sw,sh);
+  ctx.imageSmoothingEnabled=sm;
+}
 function terrainCacheOn(){return window.__TC_ON!==false;}
 function invalidateTerrainCache(){TCACHE.ready=false;}
 /* 原子重建: 全部画进后台缓冲(back), 画完再一次性把引用切成 front —
@@ -3674,11 +3762,11 @@ function draw(t){
         decor(h.tx,h.ty,'cave',(h.id==='buried'&&state.flags.buriedDone)||(h.id==='ghost'&&state.flags.ghostDone));
         near(h.tx,h.ty,'hidden',h);
       });
-      /* CO-1 知识直答门 */
+      /* CO-1 知识直答门: 只在对应章节门锁着时渲染 (门本能进则隐藏, 消灭冗余开关) */
       KDOORS.forEach(k=>{
-        decor(k.tx,k.ty,'terminal',!!state.flags['kdoor_'+k.mod]);
+        if(!kdoorLive(k))return;
+        decor(k.tx,k.ty,'terminal',false);
         overlays.push(()=>{
-          if(state.flags['kdoor_'+k.mod])return;
           const gx=k.tx*CT-cam.x,gy=k.ty*CT-cam.y-24;
           ctx.fillStyle='rgba(255,206,58,'+(0.5+0.4*Math.sin(t/400+k.tx))+')';
           ctx.font='bold 12px monospace';ctx.textAlign='center';ctx.fillText('?',gx,gy);ctx.textAlign='left';
@@ -3821,6 +3909,7 @@ function draw(t){
       });
     }
   }
+  drawFog(cam);   // 主视角战争迷雾: 压在实体之上、UI(名牌/气泡/提示)之下 → 未探索区暗化, 已探索区(含玩家)清晰
   overlays.forEach(f=>{try{f();}catch(err){}});
   // 全屏特效
   if(ART){ART.fx.scanlineCanvas(ctx,VW,VH);ART.fx.vignette(ctx,VW,VH);}
@@ -3900,7 +3989,7 @@ function drawHUD(){
   const flash=(drawHUD._lastObj!==undefined&&drawHUD._lastObj!==obj);
   drawHUD._lastObj=obj;
   let h='<b>'+TT(L('Bit Valley Story','比特谷物语'))+'</b> <span class="dim">['+(state.world==='a2'?'A2':'AS')+']</span> <span class="dim">'+TT(ch)+'</span><br>'+
-    (state.flags.refIntro?('<span id="refLab" title="'+TT(L('REF = reference count, your lifeline. Click for a recap.','REF = 引用计数, 你的生命线。点击看速览。'))+'" style="cursor:help">REF</span> <span id="refBar"><span id="refFill" class="'+cls+'" style="display:block;width:'+ref+'%"></span></span> <b>'+ref+'</b><br>'):'')+
+    (state.flags.refIntro?('<span id="refLab" title="'+TT(L('REF = reference count, your lifeline. Event-driven — it rises when you do things, never drains on a timer. Click for a recap.','REF = 引用计数, 你的生命线。事件驱动——做事就涨, 不会随时间流失。点击看速览。'))+'" style="cursor:help">REF</span><span id="refBar"><span id="refFill" class="'+cls+'" style="display:block;width:'+ref+'%"></span></span> <b>'+ref+'</b><br>'):'')+
     '<span id="hudObj"'+(flash?' class="flash"':'')+' style="color:#ffce3a;font-size:12px;cursor:pointer" title="J">▶ '+obj.replace(/<[^>]*>/g,'').slice(0,56)+'</span>';
   /* 下一章推荐 (章节顺序引导, m4 期间显示) */
   if(state.asm&&!state.ascended&&state.world==='as'&&!state.interior){
@@ -3924,8 +4013,8 @@ function drawHUD(){
   const ho=$('hudObj');if(ho)ho.onclick=()=>{if(mode==='play')toggleJournal();};
   const rl=$('refLab'),rb=$('refBar');
   const refRecap=()=>{showModal(L('REF · REFERENCE COUNT','REF · 引用计数'),
-    L('How much of this world still refers to you — your lifeline here.<br>· Drains slowly with time (the machine is forgetting you)<br>· Refills when you matter: quests, puzzles, steles, caches<br>· At 0 the Recycler collects you (you lose time, never progress)<br><span class="dim">Full notes: Manual §5 (M)</span>',
-      '这个世界还有多少东西在引用你 —— 你在这里的生命线。<br>· 随时间缓慢流失(机器在慢慢忘记你)<br>· 被需要就回填: 任务、谜题、石碑、缓存箱<br>· 归零会被回收者收走(只损失时间, 永不损失进度)<br><span class="dim">详细说明: 手册 §5 (按 M)</span>'));};
+    L('How much of this world still refers to you — your lifeline here.<br>· <span class="k">Event-driven, never a timer.</span> It does NOT drain on its own.<br>· Goes UP when you matter: quests, puzzles, steles, caches, exploring new ground<br>· Only goes down if you grind one puzzle repeatedly, or enter a corrosion zone (warned first)<br>· At 0 the Recycler collects you (you lose time, never progress) — in normal play, almost impossible<br><span class="dim">Full notes: Manual §5 (M)</span>',
+      '这个世界还有多少东西在引用你 —— 你在这里的生命线。<br>· <span class="k">事件驱动, 没有倒计时。</span>它不会自己往下掉。<br>· 被需要就往上走: 任务、谜题、石碑、缓存箱、探索新区域<br>· 只有反复磕同一道谜题、或进入腐蚀区(会先预警)才会下降<br>· 归零会被回收者收走(只损失时间, 永不损失进度)——常规玩法几乎不可能<br><span class="dim">详细说明: 手册 §5 (按 M)</span>'));};
   if(rl)rl.onclick=refRecap;
   if(rb)rb.onclick=refRecap;
 }
@@ -4039,7 +4128,7 @@ function newGame(){
   state.world='as';state.interior=null;state.retPos=null;
   state.ascended=false;state.a2Unlocked=false;state.playMs=0;
   state.recentEvents=[];state.hudHidden=false;state.chapSeen=0;state.letters=[];
-  state.unlocked={};
+  state.unlocked={};state.accepted={};
   EXP.as.clear();EXP.a2.clear();
   MODLIST.forEach(m=>(m.quests||[]).forEach(q=>{state.mq[q.id]={steps:{},done:false};}));
   genAS();genA2();setContext();
@@ -4371,6 +4460,242 @@ window.ENG={
     rows.map(r=>'<div style="color:'+(r[1]?'#7CFC00':'#ff5a5a')+'">'+(r[1]?'PASS':'FAIL')+'  '+r[0]+
       (r[2]?('  <span style="color:#889">'+String(r[2]).replace(/</g,'&lt;')+'</span>'):'')+'</div>').join('');
   (function add(){if(document.body)document.body.appendChild(ov);else setTimeout(add,50);})();
+})();
+
+/* ================= J批 新功能断言探针 (各功能一个 hash) ================= */
+function __probeOverlay(title,rows){
+  const all=rows.every(r=>r[1]);
+  document.title=title+' '+(all?'PASS':'FAIL');
+  const ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;z-index:99999;background:#04060a;color:#cde;'+
+    'font:15px/1.5 Consolas,monospace;padding:20px;white-space:pre-wrap';
+  ov.innerHTML='<div style="font-size:20px;margin-bottom:10px">'+title+' PROBE</div>'+
+    rows.map(r=>'<div style="color:'+(r[1]?'#7CFC00':'#ff5a5a')+'">'+(r[1]?'PASS':'FAIL')+'  '+r[0]+
+      (r[2]?('  <span style="color:#889">'+String(r[2]).replace(/</g,'&lt;')+'</span>'):'')+'</div>').join('');
+  (function add(){if(document.body)document.body.appendChild(ov);else setTimeout(add,50);})();
+}
+
+/* ---- 各建筑可达性 BFS: index.html#reach → 新档双门全开, 洪泛验证每个领域/塔/门/直答门都从出生点可达 + 前期线性 ---- */
+(function(){
+  if(!/(^|#|&)reach\b/.test(location.hash||''))return;
+  const rows=[];const chk=(n,c,x)=>rows.push([n,!!c,x||'']);
+  try{
+    if(hasSave())wipeSave();
+    newGame();if(dlg)endDialog();sceneActive=false;
+    state.gate=true;openGateTiles();state.asm=true;openDoor2Tiles();
+    const solidT=t=>(t===2||t===3||t===6);
+    const sx=(SPAWN.x)|0,sy=(SPAWN.y)|0;
+    const seen=new Set([sx+','+sy]),st=[[sx,sy]];
+    while(st.length){const a=st.pop(),x=a[0],y=a[1];
+      for(const d of[[1,0],[-1,0],[0,1],[0,-1]]){const nx=x+d[0],ny=y+d[1],k=nx+','+ny;
+        if(nx<0||ny<0||nx>=ASW||ny>=ASH||seen.has(k))continue;
+        if(solidT(MAPAS[ny][nx]))continue;seen.add(k);st.push([nx,ny]);}}
+    const reach=(tx,ty)=>{for(const d of[[0,0],[1,0],[-1,0],[0,1],[0,-1]])if(seen.has((tx+d[0])+','+(ty+d[1])))return true;return false;};
+    const bad=[];
+    REALMS_AS.forEach(r=>{if(r.mod&&!reach(r.tx,r.ty))bad.push(r.id+'@'+r.tx+','+r.ty);});
+    if(!reach(TOWER.tx,TOWER.ty))bad.push('tower');
+    if(!reach(PORTALS.as.tx,PORTALS.as.ty))bad.push('portal');
+    KDOORS.forEach(k=>{if(!reach(k.tx,k.ty))bad.push('kdoor_'+k.mod);});
+    chk('全领域 + 塔 + 传送门 + 直答门 从出生点可达', bad.length===0, bad.join(' | '));
+    const c1=REALMS_AS.find(r=>r.ch===1),c2=REALMS_AS.find(r=>r.ch===2),c3=REALMS_AS.find(r=>r.ch===3);
+    chk('前期线性: Ch1→Ch2→Ch3 单方向南下(y 递增)', c1.ty<c2.ty&&c2.ty<c3.ty, 'ty='+c1.ty+'/'+c2.ty+'/'+c3.ty);
+    chk('前期线性: Ch1/2/3 同一主干道(x 相近≤4)', Math.max(c1.tx,c2.tx,c3.tx)-Math.min(c1.tx,c2.tx,c3.tx)<=4, 'tx='+c1.tx+'/'+c2.tx+'/'+c3.tx);
+    rows.push(['ALL',rows.every(r=>r[1]),'']);
+  }catch(e){rows.push(['EXCEPTION',false,String(e&&e.stack||e)]);}
+  __probeOverlay('REACH',rows);
+})();
+
+/* ---- 主视角战争迷雾: index.html#fog → 断言未探索区有雾/已探索区透明/探索置dirty/离屏为chunk分辨率 ---- */
+(function(){
+  if(!/(^|#|&)fog\b/.test(location.hash||''))return;
+  const rows=[];const chk=(n,c,x)=>rows.push([n,!!c,x||'']);
+  try{
+    if(hasSave())wipeSave();
+    newGame();if(dlg)endDialog();sceneActive=false;
+    fogDirty=true;buildFogMask();
+    const g=FOG.g;
+    chk('雾层离屏=chunk 分辨率(低分辨率, 非逐格)', FOG.cv.width===Math.ceil(ASW/6)&&FOG.cv.height===Math.ceil(ASH/6), FOG.cv.width+'x'+FOG.cv.height+' vs '+ASW+'x'+ASH);
+    const scx=(((SPAWN.x)|0)/6)|0,scy=(((SPAWN.y)|0)/6)|0;
+    chk('出生点 chunk 无雾(alpha≈0)', g.getImageData(scx,scy,1,1).data[3]<10, 'a='+g.getImageData(scx,scy,1,1).data[3]);
+    const fcx=FOG.cw-1,fcy=FOG.ch-1;
+    chk('远处未探索 chunk 有雾(alpha 高)', g.getImageData(fcx,fcy,1,1).data[3]>150&&!EXP.as.has(fcx+','+fcy), 'a='+g.getImageData(fcx,fcy,1,1).data[3]);
+    fogDirty=false;player.x=20*CT;player.y=50*CT;markExplored();
+    chk('探索移动 → 置 fogDirty(局部失效)', fogDirty===true);
+    buildFogMask();
+    const nx=((20/6)|0),ny=((50/6)|0);
+    chk('新探索 chunk 变透明', g.getImageData(nx,ny,1,1).data[3]<10, 'a='+g.getImageData(nx,ny,1,1).data[3]);
+    rows.push(['ALL',rows.every(r=>r[1]),'']);
+  }catch(e){rows.push(['EXCEPTION',false,String(e&&e.stack||e)]);}
+  __probeOverlay('FOG',rows);
+})();
+
+/* ---- 任务准入铁律: index.html#quests → 进馆(visited)不入J, 亲手推进第一步才入J, 未接受任务清退 ---- */
+(function(){
+  if(!/(^|#|&)quests\b/.test(location.hash||''))return;
+  const rows=[];const chk=(n,c,x)=>rows.push([n,!!c,x||'']);
+  try{
+    if(hasSave())wipeSave();
+    newGame();if(dlg)endDialog();sceneActive=false;
+    const m=MODS['dev'];chk('dev 模块已注册', !!m&&(m.quests||[]).length>0);
+    state.flags['visited_dev']=true;try{reevalSteps();}catch(e){}
+    chk('进馆(visited)但未接受: dev 任务全不进 J', !(m.quests||[]).some(q=>mqEngaged(q.id)));
+    const q0=m.quests[0],s0=(q0.steps&&q0.steps[0]||{}).id;
+    modCompleteStep(q0.id,s0);
+    chk('亲手推进第一步 → 该任务进 J', mqEngaged(q0.id));
+    chk('其它未接受任务仍不进 J', !(m.quests||[]).slice(1).some(q=>mqEngaged(q.id)));
+    const ent=journalEntries();
+    const shown=ent.act.concat(ent.doneL).filter(e=>/\[/.test(e.html)&&new RegExp(TT(m.title).replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).test(e.html)).length;
+    chk('J 中 dev 条目数=1(只显示已接受的)', shown===1, 'shown='+shown);
+    rows.push(['ALL',rows.every(r=>r[1]),'']);
+  }catch(e){rows.push(['EXCEPTION',false,String(e&&e.stack||e)]);}
+  __probeOverlay('QUESTS',rows);
+})();
+
+/* ---- CO-1 直答门冗余: index.html#kdoor → 门解锁时隐藏(不live), 门锁着才出现, 用过后隐藏 ---- */
+(function(){
+  if(!/(^|#|&)kdoor\b/.test(location.hash||''))return;
+  const rows=[];const chk=(n,c,x)=>rows.push([n,!!c,x||'']);
+  try{
+    if(hasSave())wipeSave();
+    newGame();if(dlg)endDialog();sceneActive=false;
+    // 隔离教师闸门: 清空各模块 unlock 前置, 只让教师 chapter 决定锁/开
+    const saved={};KDOORS.forEach(k=>{const m=MODS[k.mod];if(m){saved[k.mod]=m.unlock;m.unlock=null;}});
+    teacherChapter=1;                                  // 只开到 Ch1
+    const kd=KDOORS.find(k=>k.mod==='data'),kl=KDOORS.find(k=>k.mod==='logic');
+    chk('教师开到 Ch1: Ch1 门开 → 直答门隐藏(不 live)', !kdoorLive(kd));
+    chk('教师开到 Ch1: Ch2 门锁 → 直答门出现(live)', kdoorLive(kl));
+    teacherChapter=null;                               // 全开
+    chk('教师全开: 所有未用直答门隐藏', KDOORS.every(k=>state.flags['kdoor_'+k.mod]||!kdoorLive(k)));
+    // 门锁着时用掉一扇 → 之后隐藏
+    teacherChapter=1;state.flags['kdoor_logic']=true;
+    chk('用过的直答门隐藏(不 live)', !kdoorLive(kl));
+    KDOORS.forEach(k=>{const m=MODS[k.mod];if(m&&saved[k.mod]!==undefined)m.unlock=saved[k.mod];});
+    teacherChapter=null;
+    rows.push(['ALL',rows.every(r=>r[1]),'']);
+  }catch(e){rows.push(['EXCEPTION',false,String(e&&e.stack||e)]);}
+  __probeOverlay('KDOOR',rows);
+})();
+
+/* ---- Aria 对话后不再闪: index.html#aria → 终态签名稳定, npcHasNew 恒 false(名牌/气泡熄灭) ---- */
+(function(){
+  if(!/(^|#|&)aria\b/.test(location.hash||''))return;
+  const rows=[];const chk=(n,c,x)=>rows.push([n,!!c,x||'']);
+  const errs=[];const oldOnerr=window.onerror;window.onerror=function(m){errs.push(String(m));if(oldOnerr)try{oldOnerr.apply(this,arguments);}catch(_){}return false;};
+  try{
+    if(hasSave())wipeSave();
+    newGame();if(dlg)endDialog();sceneActive=false;
+    state.interior='data';setContext();state.flags['visited_data']=true;
+    const aria=(IMODS['data'].npcs||[]).find(n=>n.id==='dt_aria');
+    chk('找到 Aria(dt_aria)', !!aria);
+    // 推进到"修复完成 + 听完整首歌"的终态
+    api.setFlag('dt_s1_met',true);api.setFlag('dt_wave_done',true);api.setFlag('dt_s3_done',true);
+    // 模拟对话结束后的签名重记 (endDialog 同逻辑)
+    delete npcSigCache['m_data_dt_aria'];
+    state.flags['heard_m_data_dt_aria']=modNpcSig(aria);
+    chk('对话到底后 Aria 无「有新话」信号(名牌/气泡熄灭)', npcHasNew(aria,true)===false);
+    // 跨 1.5s 缓存窗多次重算 → 签名稳定不振荡
+    let osc=false;for(let i=0;i<5;i++){delete npcSigCache['m_data_dt_aria'];if(npcHasNew(aria,true))osc=true;}
+    chk('重算 5 次签名稳定(不振荡→不闪)', !osc);
+    // 中间态(仅修复未听歌)也应能被"听过"熄灭
+    api.setFlag('dt_s3_done',false);delete npcSigCache['m_data_dt_aria'];
+    state.flags['heard_m_data_dt_aria']=modNpcSig(aria);
+    chk('修复后未听歌的中间态: 听过后也无残留信号', npcHasNew(aria,true)===false);
+    chk('无 JS 错误', errs.length===0, errs.join(' | '));
+    rows.push(['ALL',rows.every(r=>r[1]),'']);
+  }catch(e){rows.push(['EXCEPTION',false,String(e&&e.stack||e)]);}
+  window.onerror=oldOnerr;
+  __probeOverlay('ARIA',rows);
+})();
+
+/* ---- 目检视图: index.html#fogview → 双门开+部分探索, 正常渲染供截图看主视角战争迷雾 ---- */
+(function(){
+  if(!/(^|#|&)fogview\b/.test(location.hash||''))return;
+  try{
+    if(hasSave())wipeSave();
+    newGame();if(dlg)endDialog();sceneActive=false;
+    state.tut=4;state.gate=true;state.asm=true;openGateTiles();openDoor2Tiles();
+    state.flags.revealDone=true;state.flags.mapUnlock=true;state.flags.refIntro=true;
+    player.x=30*TILE;player.y=26*TILE;markExplored();
+    // 沿主干道走几步, 探出一条走廊(其余保持迷雾)
+    for(let i=0;i<8;i++){player.y-=1.5*TILE;markExplored();}
+    running=true;setMode('play');drawHUD();
+  }catch(e){try{window.onerror(String(e),'',0);}catch(_){}}
+})();
+
+/* ---- 目检视图: index.html#waveview → 打开采样修复台谜题面板供截图看波形/走样 ---- */
+(function(){
+  if(!/(^|#|&)waveview\b/.test(location.hash||''))return;
+  try{
+    if(hasSave())wipeSave();
+    newGame();if(dlg)endDialog();sceneActive=false;
+    state.interior='data';setContext();state.flags['visited_data']=true;
+    api.setFlag('dt_s1_met',true);state.flags['primer_seen_dt_wave']=true;
+    running=true;
+    const p=MODS['data'].puzzles.find(x=>x.id==='dt_wave');
+    openPuzzle(p);
+    // 预选一个走样档(16k), 让截图直接看到黄线折叠
+    setTimeout(()=>{try{const b=Array.from($('modBody').querySelectorAll('button')).find(x=>x.textContent.trim()==='16 kHz');if(b)b.click();}catch(e){}},300);
+  }catch(e){try{window.onerror(String(e),'',0);}catch(_){}}
+})();
+
+/* ---- 采样修复台重做: index.html#wave → 渲染 dt_wave, 断言视觉canvas/选8k失败/选44.1k通过(id 不变) ---- */
+(function(){
+  if(!/(^|#|&)wave\b/.test(location.hash||''))return;
+  const rows=[];const chk=(n,c,x)=>rows.push([n,!!c,x||'']);
+  const errs=[];const oldOnerr=window.onerror;window.onerror=function(m){errs.push(String(m));if(oldOnerr)try{oldOnerr.apply(this,arguments);}catch(_){}return false;};
+  try{
+    if(hasSave())wipeSave();
+    newGame();if(dlg)endDialog();sceneActive=false;
+    state.interior='data';setContext();state.flags['visited_data']=true;
+    api.setFlag('dt_s1_met',true);
+    const p=MODS['data'].puzzles.find(x=>x.id==='dt_wave');
+    chk('dt_wave 谜题存在(id 未变)', !!p);
+    const el=document.createElement('div');document.body.appendChild(el);
+    p.render(el,api);
+    const cv=el.querySelector('canvas');
+    chk('视觉为主: 渲染出波形 canvas', !!cv&&cv.width>0&&cv.height>0);
+    const pick=t=>Array.from(el.querySelectorAll('button')).find(b=>b.textContent.trim()===t);
+    const reb=()=>Array.from(el.querySelectorAll('button')).find(b=>/Rebuild|重\s*建/.test(b.textContent));
+    chk('有采样率选项 8k/16k/44.1k + 重建按钮', !!pick('8 kHz')&&!!pick('16 kHz')&&!!pick('44.1 kHz')&&!!reb());
+    // 错选 8kHz → 不通过
+    pick('8 kHz').click();reb().click();
+    chk('选 8kHz 重建 → 未通过(dt_wave_done 未置)', !state.flags.dt_wave_done);
+    chk('错选后仍留在题内(可继续)', !!el.querySelector('canvas'));
+    // 正解 44.1kHz → 通过 + 记步 dt_s2
+    el.innerHTML='';p.render(el,api);
+    pick('44.1 kHz').click();reb().click();
+    chk('选 44.1kHz 重建 → 通过(dt_wave_done 置位)', !!state.flags.dt_wave_done);
+    chk('通过后步骤 dt_s2 记账', Object.keys(state.mq).some(q=>state.mq[q].steps&&state.mq[q].steps.dt_s2));
+    // 纯判定自洽
+    const T=MODS['data']._test;
+    chk('_test: waveAnswerOk 只接受 ≥40kHz', T&&T.waveAnswerOk(44100)&&!T.waveAnswerOk(16000)&&!T.waveAnswerOk(8000));
+    chk('_test: 20kHz 在 16k 下走样(混叠), 44.1k 下不走样', T&&T.aliasFreq(20000,16000)!==20000&&T.aliasFreq(20000,44100)===20000);
+    chk('无 JS 错误', errs.length===0, errs.join(' | '));
+    rows.push(['ALL',rows.every(r=>r[1]),'']);
+  }catch(e){rows.push(['EXCEPTION',false,String(e&&e.stack||e)]);}
+  window.onerror=oldOnerr;
+  __probeOverlay('WAVE',rows);
+})();
+
+/* ---- 揭幕巡礼一笔画: index.html#tour → 从 revealScene 源码取 pan 停靠点, 断言不回头/无跨图长跳/覆盖六章 ---- */
+(function(){
+  if(!/(^|#|&)tour\b/.test(location.hash||''))return;
+  const rows=[];const chk=(n,c,x)=>rows.push([n,!!c,x||'']);
+  try{
+    const src=revealScene.toString();
+    const pans=Array.from(src.matchAll(/pan:\{x:(\d+),y:(\d+)/g)).map(m=>[+m[1],+m[2]]);
+    chk('揭幕巡礼有 ≥6 个 pan 停靠', pans.length>=6, 'n='+pans.length);
+    let east=false,back=false;
+    pans.forEach(p=>{if(p[0]>=55)east=true;if(east&&p[0]<=40)back=true;});
+    chk('一笔画: 到达东半区后不再回西半区(杜绝 5→6 回头路)', !back);
+    let maxJump=0;for(let i=1;i<pans.length;i++){const d=Math.hypot(pans[i][0]-pans[i-1][0],pans[i][1]-pans[i-1][1]);if(d>maxJump)maxJump=d;}
+    chk('相邻 pan 无跨图长跳(≤48 格)', maxJump<=48, 'max='+maxJump.toFixed(0));
+    const near=(tx,ty)=>pans.some(p=>Math.abs(p[0]-tx)<=4&&Math.abs(p[1]-ty)<=4);
+    const miss=REALMS_AS.filter(r=>r.ch&&!near(r.tx,r.ty)).map(r=>r.id);
+    chk('六个编号章节都被巡礼相机对准', miss.length===0, 'miss='+miss.join(','));
+    rows.push(['ALL',rows.every(r=>r[1]),'']);
+  }catch(e){rows.push(['EXCEPTION',false,String(e&&e.stack||e)]);}
+  __probeOverlay('TOUR',rows);
 })();
 
 /* ---- 性能探针 (仅 #perf / #perf-nocache 时启用, 正常游玩零开销/零影响) ----

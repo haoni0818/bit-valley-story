@@ -987,6 +987,46 @@ function drawWave(cv,hold){
   }catch(e){}
 }
 
+/* ---- 采样/奈奎斯特 纯判定 (J批重做; 供 _test + 修复台共用; 视觉为主) ---- */
+var TONE_HZ=20000;                                  // Aria 最高音 ≈ 人耳上限 20 kHz
+function nyquistMinRate(maxFreqHz){return 2*maxFreqHz;}          // 留住某频率所需的最低采样率
+function rateKeeps(rate,freqHz){return rate>=2*freqHz;}          // 该采样率能否无损捕捉该频率
+function waveAnswerOk(rate){return rateKeeps(rate,TONE_HZ);}     // 本题接受条件: 留得住 20 kHz(→ ≥40 kHz)
+/* 混叠(走样)频率: 采样率不足时, 高频会"折叠"成一个假的低频。==f 当且仅当被正确捕捉(f<sr/2)。 */
+function aliasFreq(freqHz,rate){
+  if(rate<=0)return freqHz;
+  var m=freqHz%rate;
+  return (m>rate/2)?(rate-m):m;
+}
+function fmtHz(hz){
+  if(hz>=1000){var k=hz/1000;return (Math.round(k*10)/10).toString().replace(/\.0$/,'')+' kHz';}
+  return hz+' Hz';
+}
+/* 视觉核心: 画连续波(绿) + 在波上按采样率打点(黄点) + 只靠样点重建的折线(黄) →
+   采样率不足时肉眼看见黄线塌成假低频/丢峰(奈奎斯特直观化)。sr=0 只画原始波。 */
+function sampleReconstruct(cv,sr){
+  try{
+    var ctx=cv.getContext('2d'),W=cv.width,H=cv.height;
+    ctx.fillStyle='#050d05';ctx.fillRect(0,0,W,H);
+    ctx.strokeStyle='#1f3f1f';ctx.beginPath();ctx.moveTo(0,H/2);ctx.lineTo(W,H/2);ctx.stroke();
+    var cycles=5, winSec=cycles/TONE_HZ, A=H*0.36;
+    // 原始连续声波(绿)
+    ctx.strokeStyle='#2f6f2f';ctx.lineWidth=1.6;ctx.beginPath();
+    for(var x=0;x<=W;x++){var t=(x/W)*winSec,y=H/2-Math.sin(2*Math.PI*TONE_HZ*t)*A;x?ctx.lineTo(x,y):ctx.moveTo(x,y);}
+    ctx.stroke();
+    if(!sr)return;
+    // 采样点(黄点) + 重建折线(黄)
+    var pts=[],k=0,tk;
+    for(k=0;(tk=k/sr)<=winSec+1e-12;k++)pts.push([(tk/winSec)*W, H/2-Math.sin(2*Math.PI*TONE_HZ*tk)*A]);
+    if(pts.length<2)pts.push([W, H/2-Math.sin(2*Math.PI*TONE_HZ*winSec)*A]);
+    ctx.strokeStyle='#ffce3a';ctx.lineWidth=1.6;ctx.beginPath();
+    pts.forEach(function(p,i){i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]);});
+    ctx.stroke();
+    ctx.fillStyle='#ffe08a';
+    pts.forEach(function(p){ctx.beginPath();ctx.arc(p[0],p[1],3,0,7);ctx.fill();});
+  }catch(e){}
+}
+
 function renderWave(el,api){
   el.innerHTML='';
   var wrap=mk(el,'div','padding:14px 18px;min-width:480px;max-width:660px;'+TXT);
@@ -1015,43 +1055,54 @@ function renderWave(el,api){
 
   header(wrap,tx('Sampling Restoration Bench','采样修复台'),tx('Work Order #001 · Songstress Aria','工单 #001 · 歌姬 Aria'));
   mk(wrap,'div','',
-    tx('You plug in the <span style="'+K+'">\'original recording · 44.1kHz\' data block</span> mentioned in the recycler\'s patrol log. '+
-       'The screen draws two waveforms side by side: <span style="color:#2f6f2f;">green is the original recording</span>, '+
-       '<span style="'+K+'">yellow is how she sounds now</span> — a sound remembered only 8,000 times a second comes out stair-stepped.',
-       '你把回收者巡视记录里提到的<span style="'+K+'">「原始录音 44.1kHz」数据块</span>插了进去。'+
-       '屏幕并排画出两条波形: <span style="color:#2f6f2f;">绿的是原始录音</span>, '+
-       '<span style="'+K+'">黄的是她现在的样子</span>——每秒只被记住 8000 次的声音, 是台阶状的。'));
-  var cv=mk(wrap,'canvas','display:block;margin:10px 0;border:1px solid #1f3f1f;');
-  cv.width=420;cv.height=110;drawWave(cv,26);
-  var ab=mk(wrap,'div','display:flex;gap:10px;margin:4px 0 10px;');
-  mk(ab,'button',BTN,tx('▶ Hear her at 8kHz','▶ 听 8kHz 的她')).onclick=function(){S(api,'ui');playTone(8000);};
-  mk(ab,'button',BTN,tx('▶ Hear the 44.1kHz original','▶ 听 44.1kHz 原始录音')).onclick=function(){S(api,'ui');playTone(44100);};
+    tx('You plug in the <span style="'+K+'">"original recording · 44.1kHz" data block</span> from the recycler\'s log. The bench wants you to choose a rebuild sample rate — but <b>watch the picture, not your ears</b>.<br>'+
+       '<span style="'+DIM+'">Green = the real, continuous sound wave. Yellow dots = the snapshots taken at your chosen rate. Yellow line = all the machine can rebuild from those snapshots.</span>',
+       '你插入了回收者记录里的<span style="'+K+'">「原始录音 · 44.1kHz」数据块</span>。修复台要你选一个重建采样率——但<b>看图, 别只用耳朵</b>。<br>'+
+       '<span style="'+DIM+'">绿线 = 真实连续的声波。黄点 = 按你选的采样率拍下的快照。黄线 = 机器只靠这些快照能重建出的全部。</span>'));
+  var cv=mk(wrap,'canvas','display:block;margin:10px 0;border:1px solid #1f3f1f;background:#050d05;');
+  cv.width=440;cv.height=130;
+  var read=mk(wrap,'div','font-size:12px;color:#bfeebf;margin:2px 0 8px;min-height:34px;line-height:1.6;');
+  function refresh(sr){
+    sampleReconstruct(cv,sr);
+    if(!sr){read.innerHTML=tx('Pick a rate below — the snapshots (dots) and the rebuilt wave (yellow) will update live.','在下面选一个采样率——快照(点)和重建波形(黄线)会实时更新。');return;}
+    var keep=Math.floor(sr/2),okTop=rateKeeps(sr,TONE_HZ);
+    read.innerHTML=tx('At <b>'+fmtHz(sr)+'</b> you keep only frequencies up to <b>'+fmtHz(keep)+'</b> (half the rate). Aria\'s top note ≈ 20 kHz — '+
+        (okTop?'<span style="color:#7CFC00">kept ✓</span>':'<span style="color:#ff8a5a">lost ✗ — see the yellow wave fold into a fake slow note? that\'s aliasing</span>')+'.',
+      '在 <b>'+fmtHz(sr)+'</b> 下, 你最高只能留住 <b>'+fmtHz(keep)+'</b> 的频率(采样率的一半)。Aria 的最高音 ≈ 20 kHz —— '+
+        (okTop?'<span style="color:#7CFC00">留住了 ✓</span>':'<span style="color:#ff8a5a">丢了 ✗ —— 看黄线塌成了一个假的慢音? 这就是"走样"(混叠)</span>')+'。');
+  }
+  refresh(0);
+  var ab=mk(wrap,'div','display:flex;gap:10px;margin:2px 0 8px;align-items:center;flex-wrap:wrap;');
+  mk(ab,'button',BTN,tx('▶ 8 kHz','▶ 8 kHz')).onclick=function(){S(api,'ui');playTone(8000);};
+  mk(ab,'button',BTN,tx('▶ 44.1 kHz','▶ 44.1 kHz')).onclick=function(){S(api,'ui');playTone(44100);};
+  mk(ab,'span','font-size:11px;'+DIM,tx('(audio is only a hint — same tune, just muffled. Trust the picture.)','(音频只是佐证——同一段旋律, 只是发闷。以图为准。)'));
 
-  mk(wrap,'div','',tx('Pick a rebuild sample rate, then press "Rebuild":','选择重建采样率, 然后按「重建」:'));
+  mk(wrap,'div','',tx('The recording holds sound up to <b>20 kHz</b> (the top of human hearing). Pick the <b>lowest</b> rebuild rate that still keeps <b>all</b> of it, then press Rebuild:',
+                      '这段录音含有最高 <b>20 kHz</b> 的声音(人耳上限)。选出仍能留住<b>全部</b>内容的<b>最低</b>重建采样率, 然后按「重建」:'));
   var pick={v:0};
   var bar=mk(wrap,'div','display:flex;gap:8px;margin:8px 0;');
-  var msg=mk(wrap,'div','min-height:34px;font-size:12px;color:#ffce3a;');
+  var msg=mk(wrap,'div','min-height:34px;font-size:12px;color:#ffce3a;line-height:1.6;');
   [[8000,'8 kHz'],[16000,'16 kHz'],[44100,'44.1 kHz']].forEach(function(o){
     var b=mk(bar,'button',BTN,o[1]);
     b.onclick=function(){
-      pick.v=o[0];S(api,'ui');
+      pick.v=o[0];S(api,'ui');refresh(o[0]);
       Array.prototype.forEach.call(bar.children,function(x){x.style.cssText=BTN;});
       b.style.cssText=BTN_HOT;
     };
   });
   var foot=mk(wrap,'div','margin-top:4px;display:flex;gap:10px;');
   mk(foot,'button',BTN_HOT,tx('⟳ Rebuild','⟳ 重 建')).onclick=function(){
-    if(!pick.v){S(api,'err');msg.textContent=tx('✗ The bench is waiting for you to pick a sample rate first. It has patience. You don\'t.','✗ 修复台等你先选一个采样率。它很有耐心, 你没有。');return;}
-    if(pick.v===8000){
-      S(api,'err');fail(api,'dt_wave');playTone(8000);
-      msg.textContent=tx('✗ You rebuilt it at the same 8kHz... she still sounds like she\'s singing through an electric fan.',
-        '✗ 原样重建了一遍 8kHz……她还是像隔着一台电风扇唱歌。');
-    }else if(pick.v===16000){
-      S(api,'err');fail(api,'dt_wave');playTone(16000);
-      msg.textContent=tx('✗ A bit better. But the whole high-note section of the chorus is still gone — not enough sample rate, high frequencies die first. '+
-        'Human hearing goes up to about 20kHz — think about how many times a second you\'d need to remember her to cover that.',
-        '✗ 好一点了。但副歌的高音整段消失——采样率不够, 高频先死。人耳听到约 20kHz, 想想要每秒记她多少次才够。');
-    }else{
+    if(!pick.v){S(api,'err');msg.textContent=tx('✗ Pick a sample rate first — and watch what it does to the yellow wave.','✗ 先选一个采样率——并看看它把黄线变成了什么样。');return;}
+    if(!waveAnswerOk(pick.v)){
+      S(api,'err');fail(api,'dt_wave');playTone(pick.v);refresh(pick.v);
+      msg.innerHTML=(pick.v===8000)
+        ? tx('✗ 8 kHz keeps only up to 4 kHz. Look: the 20 kHz note has collapsed into a fake slow wobble — she still sings through a fan.',
+             '✗ 8 kHz 只留得住 4 kHz 以下。看: 那个 20 kHz 的音塌成了一条假的慢波——她还是像隔着电风扇唱歌。')
+        : tx('✗ 16 kHz keeps only up to 8 kHz — better, but 20 kHz still folds into a fake low note (watch the yellow line). You need at least <b>2 × 20 kHz = 40 kHz</b>.',
+             '✗ 16 kHz 只留得住 8 kHz 以下——好一点, 但 20 kHz 还是塌成了假低音(看黄线)。你至少需要 <b>2 × 20 kHz = 40 kHz</b>。');
+      return;
+    }
+    {
       SET(api,'dt_wave_done');S(api,'quest');
       STEP(api,'dt_s2');playTone(44100);
       wrap.innerHTML='';
@@ -1078,12 +1129,12 @@ function renderWave(el,api){
   };
   mk(foot,'button',BTN,tx('Leave','离开')).onclick=function(){api.closePanel&&api.closePanel();};
   addHints(wrap,'dt_wave',[
-    B('Recap — sampling means taking N snapshots of a sound wave every second (the sample rate, in Hz). Too few snapshots and the smooth wave turns into stairs — high notes especially get lost, because they wiggle too fast for slow snapshots to catch. (📖 See "Sampling Rate" in the Codex for the full write-up.)',
-      '复习一下: 采样就是每秒给声波拍 N 张快照(采样率, 单位 Hz)。快照太少, 平滑的波形就变成台阶——高音尤其容易丢, 因为它抖动太快, 慢快照跟不上。(📖 完整讲解见图鉴里的「Sampling Rate」条目。)'),
-    B('Apply it here: human hearing goes up to about 20kHz. To preserve a frequency, you need at least <b>twice</b> that many snapshots a second (the Nyquist rule). Neither 8kHz nor 16kHz reaches 2×20kHz — only a high enough sample rate keeps the high notes.',
-      '用到这题上: 人耳能听到约 20kHz。要留住某个频率, 每秒至少要拍它 <b>两倍</b>那么多张快照(奈奎斯特法则)。8kHz、16kHz 都够不到 2×20kHz——只有采样率够高, 才留得住高音。'),
-    B('Answer: pick <b>44.1 kHz</b> — just above 2×20kHz, and also the sample rate of CD-quality audio.',
-      '答案: 选 <b>44.1 kHz</b>——刚好高于 2×20kHz, 这也是 CD 音质的采样率。')
+    B('Look at the yellow wave as you switch rates. When the dots are too far apart, the yellow line can\'t follow the green wiggles — it "folds" into a slower, wrong wave. That folding is why a too-low rate loses the high notes (it doesn\'t mute them — it turns them into fake low notes). (📖 See "Sampling Rate" in the Codex.)',
+      '切换采样率时盯着黄线看。点隔得太远时, 黄线跟不上绿波的抖动——它会"折叠"成一条更慢的、错误的波。这个折叠就是采样率太低会丢高音的原因(不是变小声, 而是变成假的低音)。(📖 详见图鉴「Sampling Rate」。)'),
+    B('The rule (Nyquist): to keep a frequency, snapshot at least <b>twice</b> as fast. This recording holds up to 20 kHz, so the minimum safe rate is 2 × 20 kHz = <b>40 kHz</b>. Which offered rate is the lowest one that clears 40 kHz?',
+      '法则(奈奎斯特): 要留住某频率, 采样至少要快<b>两倍</b>。这段录音含到 20 kHz, 所以安全的最低采样率是 2 × 20 kHz = <b>40 kHz</b>。给的选项里, 哪个是"刚好超过 40 kHz"的最低那个?'),
+    B('Answer: <b>44.1 kHz</b> — the lowest offered rate above 40 kHz (and, not by coincidence, the sample rate of CD audio). 8k and 16k both fall short, so their high notes alias.',
+      '答案: <b>44.1 kHz</b>——选项里唯一超过 40 kHz 的最低采样率(也正是 CD 音质的采样率, 并非巧合)。8k 和 16k 都不够, 高音会走样。')
   ]);
 }
 
@@ -1465,16 +1516,18 @@ var MOD={
     {id:'dt_wave',x:4,y:11,kind:'puzzleStation',title:B('The Sampling Restoration Bench','采样修复台'),
      syllabus:'9618 §1.4 声音: 采样率/位深',
      codex:['sampling-rate'],
-     primer:{title:B('What is sample rate?','采样率是什么?'),
+     primer:{title:B('What is sample rate? (watch the picture)','采样率是什么?(看图就懂)'),
        body:B(
-         '① A real sound wave is continuous, but a computer can only store snapshots of it. <b>Sample rate</b> = how many snapshots are taken every second (measured in Hz).<br>'+
-         '<pre>low rate:  •   •   •   •     → sounds like stairs, high notes lost\nhigh rate: • • • • • • • •   → smooth, accurate</pre>'+
-         '③ Like a flip-book cartoon: few drawings per second and the motion looks jerky; many drawings per second and it looks smooth. Sound sampling is the same idea, just audio instead of pictures.<br>'+
-         '④ In this puzzle: pick a rebuild sample rate high enough to capture the full range of human hearing (up to ~20kHz) — too low, and the high notes vanish.',
-         '① 真实的声波是连续的, 但计算机只能存储它的快照。<b>采样率</b> = 每秒拍多少张快照(单位 Hz)。<br>'+
-         '<pre>低采样率:  •   •   •   •     → 听起来像台阶, 高音丢失\n高采样率:  • • • • • • • •   → 平滑, 准确</pre>'+
-         '③ 就像翻页动画: 每秒画的张数少, 动作就卡; 每秒画的张数多, 动作就顺滑。声音采样是同一个道理, 只是把"画面"换成了"声音"。<br>'+
-         '④ 这道题里: 选一个足够高的重建采样率, 覆盖人耳能听到的全部范围(约 20kHz)——太低, 高音就会消失。')},
+         '① A real sound wave is smooth and continuous. A computer can\'t store the whole curve — it only takes <b>snapshots</b> at fixed moments. <b>Sample rate</b> = how many snapshots per second (in Hz).<br>'+
+         '② Here\'s the catch you\'ll SEE on the screen: if the snapshots are too far apart, a fast wiggle (a high note) slips <i>between</i> two snapshots. The machine, seeing only the dots, connects them into a <b>slower, wrong wave</b>. That fake wave is called <b>aliasing</b> — the high note doesn\'t just get quieter, it turns into the wrong note.<br>'+
+         '<pre>fast wave, too few snapshots:   /\\    /\\          the dots the machine sees:  •      •      •\nwhat it rebuilds instead:  \\_____/    ← a slow fake wave (aliasing)</pre>'+
+         '③ The rule (Nyquist): to keep a frequency, you must snapshot at least <b>twice</b> as fast as it wiggles. Keep up to 20 kHz → need at least 2 × 20 = 40 kHz.<br>'+
+         '④ In this puzzle: pick the lowest rebuild rate whose yellow rebuilt wave still matches the green original everywhere. Too low, and you\'ll watch the high note fold into a fake one.',
+         '① 真实的声波是平滑连续的。计算机存不下整条曲线, 只能在固定时刻拍<b>快照</b>。<b>采样率</b> = 每秒拍多少张快照(单位 Hz)。<br>'+
+         '② 屏幕上你会亲眼看到的关键: 如果两张快照隔得太远, 一个快速的抖动(高音)就会从两张快照<i>中间溜过去</i>。机器只看得到那几个点, 就把它们连成一条<b>更慢的、错误的波</b>。这条假波叫<b>走样(混叠, aliasing)</b>——高音不是变小声, 而是变成了错误的音。<br>'+
+         '<pre>快波, 快照太少:   /\\    /\\          机器看到的点:  •      •      •\n它反而重建成:  \\_____/    ← 一条慢的假波(走样)</pre>'+
+         '③ 法则(奈奎斯特): 要留住某个频率, 每秒拍照必须至少是它抖动速度的<b>两倍</b>。要留住 20 kHz → 至少要 2 × 20 = 40 kHz。<br>'+
+         '④ 这道题里: 选出黄色重建波仍能处处贴合绿色原始波的<b>最低</b>采样率。太低, 你就会看着高音塌成一个假音。')},
      render:renderWave,
      onKey:function(e,api){if(e.key==='?'&&hintFns.dt_wave)hintFns.dt_wave();}}
   ],
@@ -1511,7 +1564,10 @@ var MOD={
     nibbleVal:nibbleVal,nibbleValid:nibbleValid,dialsToTime:dialsToTime,
     timeDiffSec:timeDiffSec,clockMatch:clockMatch,CLOCK_TOL:CLOCK_TOL,
     toBin4:toBin4,bcdAddSolve:bcdAddSolve,bcdAddCheckAnswer:bcdAddCheckAnswer,
-    genHeldSine:genHeldSine
+    genHeldSine:genHeldSine,
+    /* J批 采样修复台重做: 奈奎斯特/走样 纯判定 */
+    TONE_HZ:TONE_HZ,nyquistMinRate:nyquistMinRate,rateKeeps:rateKeeps,
+    waveAnswerOk:waveAnswerOk,aliasFreq:aliasFreq,fmtHz:fmtHz
   }
 };
 
