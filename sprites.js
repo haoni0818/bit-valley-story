@@ -773,9 +773,11 @@ function nbrs(n){
    kind(可选第 8 参): 'rock'(默认, 自然断崖 — 世界地图的山体/边界用这个,
    顶面不规则起伏+岩层立面, 不会被误读成房子) | 'wall'(人造墙 — interior
    房间墙/要塞城墙用, 平顶直立面的建筑语言)。 */
-function drawWallTall(ctx,x,y,size,neighbors,world,t,kind){
+function drawWallTall(ctx,x,y,size,neighbors,world,t,kind,wx,wy){
   const p=pal(world), u=size/16, n=nbrs(neighbors);
-  const tx=Math.round(x/size), ty=Math.round(y/size);
+  /* 细节斑点种子必须用世界格坐标 (wx,wy), 否则镜头一滚屏幕坐标就变→斑点每步重掷。
+     兼容旧调用: 未传世界坐标时退回屏幕坐标推算(仅无缓存/静止时可用)。 */
+  const tx=(wx!=null)?wx:Math.round(x/size), ty=(wy!=null)?wy:Math.round(y/size);
   t=t||0; kind=kind||'rock';
   const h1=hash(tx,ty,11), h2=hash(tx,ty,12);
 

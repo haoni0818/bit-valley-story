@@ -830,8 +830,8 @@ function genA2(){
   NPCS_A2.forEach(n=>clearAt(m,n.tx,n.ty,1));
   CACHES_A2.forEach(c=>clearAt(m,c.tx,c.ty,1));
 }
-function openGateTiles(){GATE.forEach(g=>{if(MAPAS[g.y])MAPAS[g.y][g.x]=4;});}
-function openDoor2Tiles(){DOOR2.forEach(g=>{if(MAPAS[g.y])MAPAS[g.y][g.x]=4;});}
+function openGateTiles(){GATE.forEach(g=>{if(MAPAS[g.y])MAPAS[g.y][g.x]=4;});invalidateTerrainCache();}
+function openDoor2Tiles(){DOOR2.forEach(g=>{if(MAPAS[g.y])MAPAS[g.y][g.x]=4;});invalidateTerrainCache();}
 
 /* ---------------- 4. 世界对象 ----------------
    AS: 峡谷内(cpu神殿) + 6 编号领域(按 9618 教学顺序) + 缓存驿站(自由内容)
@@ -2038,6 +2038,7 @@ function setContext(){
     CT=TILE;WORLD=state.world;
   }
   try{document.body.classList.toggle('world-a2',WORLD==='a2');}catch(e){}
+  if(typeof invalidateTerrainCache==='function')invalidateTerrainCache();
 }
 function curRealms(){return state.world==='a2'?REALMS_A2:REALMS_AS;}
 function curNpcs(){return state.world==='a2'?NPCS_A2:NPCS_AS;}
@@ -3265,30 +3266,61 @@ function drawStructOld(k,cx,cy,t){ // 无美术包时的旧建筑绘制
   else if(k==='reboot'){const lit=litCount();for(let i=0;i<8;i++){P(-12,-4-i*11,24,9,i<lit?"#7CFC00":"#1a241a");}}
   else{P(-10,-10,20,20,"#3a4046");}
 }
-function drawTileAny(tt,sx,sy,t,x,y){
+function drawTileAny(tt,sx,sy,t,x,y,g){
+  g=g||ctx;                                   // 可选目标画布(静态地形缓存用)
   if(ART){
     let type=tt;
     if(state.interior)type=(tt===1)?'rock':'ground';
-    ART.drawTile(ctx,type,sx,sy,CT,t,WORLD,x,y);
+    ART.drawTile(g,type,sx,sy,CT,t,WORLD,x,y);
     return;
   }
   // 旧绘制回退
-  ctx.fillStyle=state.interior?'#0d1210':BIOTINT[0];ctx.fillRect(sx,sy,CT,CT);
-  if(((x*3+y*5)%6)===0){ctx.fillStyle="rgba(120,200,120,.05)";ctx.font="10px monospace";ctx.fillText((x+y)%2,sx+9,sy+18);}
+  g.fillStyle=state.interior?'#0d1210':BIOTINT[0];g.fillRect(sx,sy,CT,CT);
+  if(((x*3+y*5)%6)===0){g.fillStyle="rgba(120,200,120,.05)";g.font="10px monospace";g.fillText((x+y)%2,sx+9,sy+18);}
   if(state.interior){
-    if(tt===1){ctx.fillStyle="#252b31";ctx.fillRect(sx,sy,CT,CT);ctx.fillStyle="#31383f";ctx.fillRect(sx+2,sy+2,CT-4,6);}
+    if(tt===1){g.fillStyle="#252b31";g.fillRect(sx,sy,CT,CT);g.fillStyle="#31383f";g.fillRect(sx+2,sy+2,CT-4,6);}
     return;
   }
-  if(tt===1){ctx.fillStyle="#14351a";ctx.fillRect(sx+6,sy+4,CT-12,CT-10);ctx.fillStyle="#1e4a26";ctx.fillRect(sx+8,sy+2,CT-16,8);ctx.fillStyle="#2a1a0e";ctx.fillRect(sx+CT/2-2,sy+CT-8,4,7);}
-  else if(tt===2){ctx.fillStyle="#2a2f33";ctx.fillRect(sx+2,sy+6,CT-4,CT-8);ctx.fillStyle="#3a4046";ctx.beginPath();ctx.moveTo(sx+CT/2,sy+3);ctx.lineTo(sx+CT-3,sy+CT-3);ctx.lineTo(sx+3,sy+CT-3);ctx.fill();}
-  else if(tt===3){ctx.fillStyle="#0b2230";ctx.fillRect(sx,sy,CT,CT);ctx.fillStyle="rgba(60,180,220,.22)";ctx.fillRect(sx,sy+(((t/280+x)|0)%CT),CT,2);}
-  else if(tt===4){ctx.fillStyle="#241f16";ctx.fillRect(sx,sy,CT,CT);ctx.fillStyle="#2f2819";ctx.fillRect(sx+4,sy+4,CT-8,CT-8);
-    if(((x+y+((t/260)|0))%7)===0){ctx.fillStyle="rgba(124,252,0,.5)";ctx.font="10px monospace";ctx.fillText((x^y)&1,sx+CT/2-3,sy+CT/2+3);}}
-  else if(tt===5){ctx.fillStyle="#1c1810";ctx.fillRect(sx,sy,CT,CT);}
-  else if(tt===6){ctx.fillStyle="#101820";ctx.fillRect(sx,sy,CT,CT);
+  if(tt===1){g.fillStyle="#14351a";g.fillRect(sx+6,sy+4,CT-12,CT-10);g.fillStyle="#1e4a26";g.fillRect(sx+8,sy+2,CT-16,8);g.fillStyle="#2a1a0e";g.fillRect(sx+CT/2-2,sy+CT-8,4,7);}
+  else if(tt===2){g.fillStyle="#2a2f33";g.fillRect(sx+2,sy+6,CT-4,CT-8);g.fillStyle="#3a4046";g.beginPath();g.moveTo(sx+CT/2,sy+3);g.lineTo(sx+CT-3,sy+CT-3);g.lineTo(sx+3,sy+CT-3);g.fill();}
+  else if(tt===3){g.fillStyle="#0b2230";g.fillRect(sx,sy,CT,CT);g.fillStyle="rgba(60,180,220,.22)";g.fillRect(sx,sy+(((t/280+x)|0)%CT),CT,2);}
+  else if(tt===4){g.fillStyle="#241f16";g.fillRect(sx,sy,CT,CT);g.fillStyle="#2f2819";g.fillRect(sx+4,sy+4,CT-8,CT-8);
+    if(((x+y+((t/260)|0))%7)===0){g.fillStyle="rgba(124,252,0,.5)";g.font="10px monospace";g.fillText((x^y)&1,sx+CT/2-3,sy+CT/2+3);}}
+  else if(tt===5){g.fillStyle="#1c1810";g.fillRect(sx,sy,CT,CT);}
+  else if(tt===6){g.fillStyle="#101820";g.fillRect(sx,sy,CT,CT);
     const p2=0.5+0.5*Math.sin(t/180+y);
-    for(let i=0;i<4;i++){ctx.fillStyle="rgba(255,80,80,"+(0.25+p2*0.4)+")";ctx.fillRect(sx+3+i*6,sy+2,2,CT-4);}
-    ctx.fillStyle="rgba(255,120,120,.8)";ctx.font="9px monospace";ctx.fillText("LOCK",sx+2,sy+CT/2+3);}
+    for(let i=0;i<4;i++){g.fillStyle="rgba(255,80,80,"+(0.25+p2*0.4)+")";g.fillRect(sx+3+i*6,sy+2,2,CT-4);}
+    g.fillStyle="rgba(255,120,120,.8)";g.font="9px monospace";g.fillText("LOCK",sx+2,sy+CT/2+3);}
+}
+/* ===== 静态地形层缓存 (性能: 地面/树/水/路等平铺瓦片不参与 y-sort, 烘进离屏画布) =====
+   只在 ①镜头移出缓存覆盖区 ②世界/室内切换 ③低频动画 tick(~200ms) 时重建;
+   主帧只 drawImage 一次。立着的墙/岩(tall wall)仍每帧入 E 参与遮挡排序。 */
+const TCACHE={cv:null,g:null,bcv:null,bg:null,cx0:0,cy0:0,cx1:0,cy1:0,world:'',tick:-1,ready:false};
+function terrainCacheOn(){return window.__TC_ON!==false;}
+function invalidateTerrainCache(){TCACHE.ready=false;}
+/* 原子重建: 全部画进后台缓冲(back), 画完再一次性把引用切成 front —
+   任意帧读到的 front 永远是"完整"的一张图, 绝不出现半张/双绘/空白接缝。 */
+function buildTerrainCache(x0,y0,x1,y1,t){
+  const M=3;                                   // 覆盖区在视口外多留 3 格, 小幅移动不触发重建
+  const rx0=Math.max(0,x0-M),ry0=Math.max(0,y0-M),rx1=Math.min(MW,x1+M),ry1=Math.min(MH,y1+M);
+  const w=(rx1-rx0)*CT,h=(ry1-ry0)*CT;
+  if(!TCACHE.bcv){TCACHE.bcv=document.createElement('canvas');TCACHE.bg=TCACHE.bcv.getContext('2d');}
+  if(TCACHE.bcv.width!==w||TCACHE.bcv.height!==h){TCACHE.bcv.width=w;TCACHE.bcv.height=h;}
+  const g=TCACHE.bg;g.imageSmoothingEnabled=false;
+  g.clearRect(0,0,w,h);
+  let _n=0;
+  for(let y=ry0;y<ry1;y++)for(let x=rx0;x<rx1;x++){
+    const tt=curTiles[y][x],sx=(x-rx0)*CT,sy=(y-ry0)*CT;
+    if(V2&&isWallTile(x,y))ART.drawTile(g,'ground',sx,sy,CT,t,WORLD,x,y); // 墙位只垫地; tall wall 主帧实画
+    else drawTileAny(tt,sx,sy,t,x,y,g);        // 全用世界格 (x,y) 做种子 → 斑点钉死
+    _n++;
+  }
+  if(window.__PERF)window.__PERF.acc.tiles+=_n;
+  // 原子切换: back ↔ front
+  const oc=TCACHE.cv,og=TCACHE.g;
+  TCACHE.cv=TCACHE.bcv;TCACHE.g=TCACHE.bg;TCACHE.bcv=oc;TCACHE.bg=og;
+  TCACHE.cx0=rx0;TCACHE.cy0=ry0;TCACHE.cx1=rx1;TCACHE.cy1=ry1;
+  TCACHE.world=WORLD+'|'+(state.interior||'');TCACHE.tick=(t/200)|0;TCACHE.ready=true;
 }
 /* Q 键 ping 扫描脉冲 (ARG 隐藏物不响应 — 未发现的 hidden 根本不在可交互清单里) */
 let pingFx=null;
@@ -3304,6 +3336,7 @@ function toggleHud(){
   toast(state.hudHidden?L('HUD hidden (H to restore)','HUD 已隐藏 (H 恢复)'):L('HUD restored','HUD 已恢复'));
 }
 function draw(t){
+  const _P=window.__PERF,_pon=_P&&_P.on;let _t0=_pon?performance.now():0;const _tS=_t0;
   const mw=MW*CT,mh=MH*CT;
   const fx=camOverride?camOverride.x:player.x, fy=camOverride?camOverride.y:player.y;
   const cam={x:0,y:0};
@@ -3315,18 +3348,42 @@ function draw(t){
         x1=Math.min(MW,x0+(VW/CT|0)+2),y1=Math.min(MH,y0+(VH/CT|0)+(V2?6:2));  // v2: 下裁剪多扫(高楼从底边进入)
   /* ---- 两遍画 (art v2 伪透视): 第 1 遍全地面; 立着的东西收进 E, 按 ySortHint 排序 ---- */
   const E=[];let seq=0;
-  const push=(kind,baseScreenY,fn)=>{E.push({s:V2?V2.ySortHint(kind,baseScreenY):(seq++),d:fn});};
-  for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){
-    const tt=curTiles[y][x],sx=x*CT-cam.x,sy=y*CT-cam.y;
-    if(V2&&isWallTile(x,y)){
-      ART.drawTile(ctx,'ground',sx,sy,CT,t,WORLD,x,y);      // 垫地防缝
-      const nb={up:isWallTile(x,y-1),down:isWallTile(x,y+1),left:isWallTile(x-1,y),right:isWallTile(x+1,y)};
-      const kind=state.interior?'wall':'rock';               // 断崖=自然语言, interior=建筑语言
-      push('wall',(y+1)*CT-cam.y,()=>V2.drawWallTall(ctx,sx,sy,CT,nb,WORLD,t,kind));
-    }else{
-      drawTileAny(tt,sx,sy,t,x,y);
+  const push=(kind,baseScreenY,fn)=>{const i=seq++;E.push({s:V2?V2.ySortHint(kind,baseScreenY):i,i:i,d:fn});};
+  if(terrainCacheOn()){
+    /* 静态层: 缓存缺失/移出覆盖区/切图/动画tick 变了才重建, 否则一次 drawImage 贴图 */
+    const wk=WORLD+'|'+(state.interior||''),tick=(t/200)|0;
+    if(!TCACHE.ready||TCACHE.world!==wk||TCACHE.tick!==tick||
+       x0<TCACHE.cx0||y0<TCACHE.cy0||x1>TCACHE.cx1||y1>TCACHE.cy1)
+      buildTerrainCache(x0,y0,x1,y1,t);
+    if(TCACHE.cv)ctx.drawImage(TCACHE.cv,TCACHE.cx0*CT-cam.x,TCACHE.cy0*CT-cam.y);
+    /* 立墙仍每帧入 E 参与遮挡排序 (只对视口内墙格, 无绘制开销) */
+    for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){
+      if(V2&&isWallTile(x,y)){
+        const sx=x*CT-cam.x,sy=y*CT-cam.y;
+        const nb={up:isWallTile(x,y-1),down:isWallTile(x,y+1),left:isWallTile(x-1,y),right:isWallTile(x+1,y)};
+        const kind=state.interior?'wall':'rock';
+        const wx=x,wy=y;
+        push('wall',(y+1)*CT-cam.y,()=>V2.drawWallTall(ctx,sx,sy,CT,nb,WORLD,t,kind,wx,wy));
+      }
     }
+  }else{
+    let _n=0;
+    for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){
+      const tt=curTiles[y][x],sx=x*CT-cam.x,sy=y*CT-cam.y;
+      if(V2&&isWallTile(x,y)){
+        ART.drawTile(ctx,'ground',sx,sy,CT,t,WORLD,x,y);      // 垫地防缝
+        const nb={up:isWallTile(x,y-1),down:isWallTile(x,y+1),left:isWallTile(x-1,y),right:isWallTile(x+1,y)};
+        const kind=state.interior?'wall':'rock';               // 断崖=自然语言, interior=建筑语言
+        const wx=x,wy=y;
+        push('wall',(y+1)*CT-cam.y,()=>V2.drawWallTall(ctx,sx,sy,CT,nb,WORLD,t,kind,wx,wy));
+      }else{
+        drawTileAny(tt,sx,sy,t,x,y);
+      }
+      _n++;
+    }
+    if(_pon)_P.acc.tiles+=_n;
   }
+  if(_pon){const n=performance.now();_P.acc.terrain+=n-_t0;_t0=n;}
   nearThing=null;let nd=CT*1.55;
   const pois=[];   // 本帧全部可交互物 (ping 高亮用)
   const near=(tx,ty,type,ref,r)=>{
@@ -3556,9 +3613,11 @@ function draw(t){
     else if(ART)push('player',pcy+11,()=>ART.drawPlayer(ctx,pcx,pcy+11,32,player.dir||'down',Math.floor(player.step*2)%2,t,WORLD));
     else push('player',pcy+11,()=>drawPlayerOld(pcx,pcy));
   }
-  /* 第 2 遍: 排序即遮挡 */
-  if(V2)E.sort((a,b)=>a.s-b.s);
+  if(_pon){const n=performance.now();_P.acc.ent+=n-_t0;_t0=n;}
+  /* 第 2 遍: 排序即遮挡 (次级键 i=入列序, 同 y 稳定不抖, 防 z-fighting 闪烁) */
+  if(V2)E.sort((a,b)=>(a.s-b.s)||(a.i-b.i));
   E.forEach(e=>{try{e.d();}catch(err){}});
+  if(_pon){const n=performance.now();_P.acc.edraw+=n-_t0;_P.acc.ecount+=E.length;_t0=n;}
   /* 靠近可交互物: 柔光描边 + E 提示强化 */
   if(nearThing&&mode==='play'&&!sceneActive){
     const g=0.25+0.15*Math.sin(t/260);
@@ -3605,6 +3664,8 @@ function draw(t){
   /* HUD 只属于走地图状态: 谜题/对话/任何面板打开或演出中一律隐藏 */
   const hudVis=(mode==='play')&&!sceneActive&&!state.hudHidden&&running;
   if(draw._hudVis!==hudVis){draw._hudVis=hudVis;$('hud').style.display=hudVis?'block':'none';}
+  if(_pon){const n=performance.now();_P.acc.post+=n-_t0;_P.acc.total+=n-_tS;_P.frames++;
+    if(_P.lastT)_P.dtSum+=t-_P.lastT;_P.lastT=t;}
 }
 /* 留言牌小纸牌 decor */
 function drawNoteDecor(sx,sy,t){
@@ -3947,5 +4008,69 @@ window.ENG={
       runLightScene('data');
     }
   }catch(e){window.onerror(String(e),'',0);}
+})();
+
+/* ---- 性能探针 (仅 #perf / #perf-nocache 时启用, 正常游玩零开销/零影响) ----
+   #perf         : 静态地形缓存 ON  (优化后)
+   #perf-nocache : 静态地形缓存 OFF (原始基线)
+   自动进 AS 大地图 + 模拟持续按键移动, 把 fps/分段耗时画到左上角 DOM 供截图读数。 */
+(function(){
+  const h=location.hash||'';
+  if(!/perf/.test(h))return;
+  window.__TC_ON=!/nocache/.test(h);        // nocache → 关缓存跑基线
+  window.__PERF={on:false,acc:{terrain:0,ent:0,edraw:0,post:0,total:0,ecount:0,tiles:0},
+                 frames:0,lastT:0,dtSum:0};
+  try{
+    if(hasSave())wipeSave();
+    newGame();
+    if(dlg)endDialog();sceneActive=false;
+    state.tut=4;state.gate=true;state.asm=true;openGateTiles();openDoor2Tiles();
+    state.flags.revealDone=true;state.flags.mapUnlock=true;state.flags.refIntro=true;
+    player.x=45*TILE;player.y=32*TILE;markExplored();drawHUD();
+  }catch(e){}
+  // 直接驱动镜头扫掠 (绕过教程/演出对 move() 的阻断), 逼镜头持续滚动 + 缓存频繁重建
+  let vx=3.4,vy=0,phase=0;
+  setInterval(()=>{try{
+    sceneActive=false;running=true;
+    phase++;
+    if(phase%70===0){const d=((phase/70)|0)%4;vx=[3.4,0,-3.4,0][d];vy=[0,3.4,0,-3.4][d];}
+    player.x=Math.max(3*TILE,Math.min((MW-3)*TILE,player.x+vx));
+    player.y=Math.max(3*TILE,Math.min((MH-3)*TILE,player.y+vy));
+    player.step=(player.step||0)+0.2;
+  }catch(e){}},16);
+  // 覆盖层
+  const ov=document.createElement('div');
+  ov.id='perfOverlay';
+  ov.style.cssText='position:fixed;left:8px;top:8px;z-index:99999;background:rgba(0,0,0,.82);'+
+    'color:#7CFC00;font:12px/1.5 Consolas,monospace;padding:8px 10px;white-space:pre;'+
+    'border:1px solid #2a5;border-radius:4px;pointer-events:none';
+  ov.textContent='perf: warming up...';
+  (function add(){if(document.body)document.body.appendChild(ov);else setTimeout(add,50);})();
+  // 预热 1.2s 后开始采样, 每 500ms 结算一窗中位值展示
+  const windows=[];
+  setTimeout(()=>{window.__PERF.on=true;},1200);
+  setInterval(()=>{
+    const P=window.__PERF;if(!P.on||P.frames<2)return;
+    const f=P.frames,fps=P.dtSum>0?(f*1000/P.dtSum):0;
+    const row={fps:fps,terrain:P.acc.terrain/f,ent:P.acc.ent/f,edraw:P.acc.edraw/f,
+               post:P.acc.post/f,total:P.acc.total/f,ec:P.acc.ecount/f,tiles:P.acc.tiles/f};
+    windows.push(row);
+    // 重置窗口累加器
+    P.acc={terrain:0,ent:0,edraw:0,post:0,total:0,ecount:0,tiles:0};P.frames=0;P.dtSum=0;P.lastT=0;
+    // 用最近 8 窗的中位数 (避后台负载噪声)
+    const recent=windows.slice(-8);
+    const med=k=>{const a=recent.map(r=>r[k]).sort((x,y)=>x-y);return a[a.length>>1];};
+    const f2=x=>x.toFixed(2);
+    ov.textContent=
+      'CACHE: '+(window.__TC_ON?'ON (after)':'OFF (baseline)')+'\n'+
+      'fps    : '+med('fps').toFixed(1)+'\n'+
+      'terrain: '+f2(med('terrain'))+' ms\n'+
+      'ent    : '+f2(med('ent'))+' ms\n'+
+      'edraw  : '+f2(med('edraw'))+' ms\n'+
+      'post   : '+f2(med('post'))+' ms\n'+
+      'TOTAL  : '+f2(med('total'))+' ms/draw\n'+
+      'tiles/f: '+med('tiles').toFixed(0)+'  (terrain redraws)\n'+
+      'E items: '+med('ec').toFixed(0)+'  win:'+windows.length;
+  },500);
 })();
 </script></body></html>
