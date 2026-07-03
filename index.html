@@ -1088,6 +1088,13 @@ addEventListener('keydown',e=>{
   const k=e.key.toLowerCase();
   if(['arrowup','arrowdown','arrowleft','arrowright',' ','tab'].includes(k))e.preventDefault();
   if(mode==='intro'||mode==='ascend')return;
+  // —— 悬挂/停靠面板防护 ——
+  // 手册与谜题面板(asm/bin/mod)设计为并排共存停靠。若某流程(通关演出/传送)把 mode 切走却漏关手册,
+  // 手册 DOM 仍显示但"按 mode 判断开/关"会失灵(既不开也不关)。这里改看 DOM 实际可见性:
+  // 只要手册可见(且当前不在正规 manual 模式), M/Esc 一律能把它收起 — 兜住任何漏关路径。
+  if(mode!=='manual'&&(k==='m'||k==='escape')&&manualVisible()){closeManual();return;}
+  // 日志同理: 仅 play/manual 下有 J 开关; 若它在别的面板模式下悬挂, 也保证能被 J 关掉。
+  if(mode!=='manual'&&mode!=='play'&&k==='j'&&journalOpen){toggleJournal();return;}
   if(mode==='play'){
     if(journalOpen&&(k==='arrowleft'||k==='arrowright')){jTab=(k==='arrowleft')?'act':'done';renderJournal();return;}
     keys[k]=true;
@@ -1809,10 +1816,19 @@ function openManual(page){
   sfx.open();renderManual();
   if(!state.flags.manualSeen){state.flags.manualSeen=true;save();}
 }
+function manualVisible(){return $('manual').classList.contains('on');}  // 关闭判断看 DOM 实际可见性, 不只看 mode
 function closeManual(){
   $('manual').classList.remove('on','side');$('manual').style.display='none';
   document.body.classList.remove('man-side');
-  mode=manReturn||'play';manReturn=null;clearKeys();
+  let back=manReturn;manReturn=null;
+  // 下层面板可能已被某流程(通关/演出/传送)关掉 → 别回落到一个没有面板的死 mode
+  if(back==='asm'&&$('asmP').style.display==='none')back=null;
+  else if(back==='bin'&&$('binP').style.display==='none')back=null;
+  else if(back==='mod'&&$('modP').style.display==='none')back=null;
+  // 仅当此刻确在 manual 模式才由本函数决定 mode 回落; 若 mode 已被切走(悬挂关闭场景),
+  // 只收起 DOM, 不覆盖当前 mode(否则会把 mode 顶回一个已消失的面板)。
+  if(mode==='manual')mode=back||'play';
+  clearKeys();
 }
 function manPage(d){manIdx=Math.max(0,Math.min(DEX_PAGE,manIdx+d));manCodexIds=null;sfx.ui();renderManual();}
 function renderManual(){
@@ -1885,7 +1901,7 @@ function openBin(){
     '屏幕闪烁:<br><code class="k">LOCK PROTOCOL: 将输入寄存器设为十进制 '+BIN_TARGET+'</code><br><span class="dim">点击方块拨动比特。每一位的权重标在上方。(手册 §1, 按 M——手册会侧挂在旁边)</span>'));
   renderBits();
 }
-function closeBin(){$('binP').style.display='none';setMode('play');}
+function closeBin(){if(manualVisible())closeManual();$('binP').style.display='none';setMode('play');}
 $('binClose').onclick=closeBin;
 function renderBits(){
   const row=$('bits');row.innerHTML='';
@@ -1952,7 +1968,7 @@ function openAsm(){
                      :TT(L('Write your program, then LOAD.','写好程序后点「装载」。')),'');
   renderCPU();
 }
-function closeAsm(){$('asmP').classList.remove('on');$('asmP').style.display='none';setMode('play');}
+function closeAsm(){if(manualVisible())closeManual();$('asmP').classList.remove('on');$('asmP').style.display='none';setMode('play');}
 $('asmClose').onclick=closeAsm;
 $('asmMan').onclick=()=>{if(mode==='asm')openManual(2);};
 function asmStatus(msg,cls){const s=$('asmStatus');s.textContent=msg;s.className=cls||'';}
@@ -2373,6 +2389,7 @@ function openPuzzle(p){
   else renderPuzzleBody(p);
 }
 function closeModPanel(){
+  if(manualVisible())closeManual();   // 手册侧挂在谜题旁 → 谜题面板关闭时一并收起, 不残留悬挂
   $('modP').classList.remove('on');$('modP').style.display='none';
   curPuzzle=null;
   if(mode==='mod')setMode('play');
@@ -4474,6 +4491,65 @@ function __probeOverlay(title,rows){
       (r[2]?('  <span style="color:#889">'+String(r[2]).replace(/</g,'&lt;')+'</span>'):'')+'</div>').join('');
   (function add(){if(document.body)document.body.appendChild(ov);else setTimeout(add,50);})();
 }
+
+/* ---- 手册悬挂防护探针: index.html#manual → 复现"开 asm→M 开手册→通关(closeAsm/asmWin)→手册关不掉" ---- */
+(function(){
+  if(!/(^|#|&)manual\b/.test(location.hash||''))return;
+  const rows=[];const chk=(n,c,x)=>rows.push([n,!!c,x||'']);
+  const errs=[];const oldOnerr=window.onerror;
+  window.onerror=function(m,s,l,c,e){errs.push(String(m));if(oldOnerr)try{oldOnerr(m,s,l,c,e);}catch(_){}return false;};
+  window.addEventListener('error',ev=>{errs.push(String(ev.message||ev.error||ev));});
+  const press=k=>window.dispatchEvent(new KeyboardEvent('keydown',{key:k}));
+  try{
+    if(hasSave())wipeSave();
+    newGame();if(dlg)endDialog();sceneActive=false;state.tut=4;
+
+    // — 场景1: 手册停靠汇编面板旁, 正常 M 开/关来回 —
+    openAsm();
+    chk('openAsm → mode=asm', mode==='asm', 'mode='+mode);
+    openManual(2);
+    chk('asm 内按 M 等效: 手册可见+侧挂+mode=manual',
+        manualVisible()&&$('manual').classList.contains('side')&&mode==='manual');
+    press('m');
+    chk('手册停靠时按 M → 收起手册, 回到 asm', !manualVisible()&&mode==='asm', 'mode='+mode);
+    closeAsm();
+    chk('closeAsm → 回 play', mode==='play', 'mode='+mode);
+
+    // — 场景2 (BUG 复现核心): 手册停靠 → 通关收尾动作 closeAsm 切走 mode → 手册绝不残留 —
+    openAsm();openManual(2);
+    chk('复现前置: 手册停靠在 asm 旁', manualVisible()&&mode==='manual');
+    closeAsm();                                  // == asmWin 演出里的 {run(){closeAsm();}}
+    chk('通关(closeAsm)后 手册 DOM 不残留', !manualVisible(), 'mode='+mode);
+    chk('通关后 mode 落 play(无死 mode)', mode==='play', 'mode='+mode);
+    chk('通关后 body 无 man-side 残留', !document.body.classList.contains('man-side'));
+
+    // — 场景3: 人为制造"悬挂手册"(mode 被切走但 DOM 仍显示) → M / Esc 仍能关(看 DOM 而非 mode) —
+    openAsm();openManual(2);mode='play';         // 模拟某流程漏关手册就切了 mode
+    chk('悬挂态: 手册仍可见但 mode 已=play', manualVisible()&&mode==='play');
+    press('m');
+    chk('悬挂态按 M → 手册关闭', !manualVisible(), 'mode='+mode);
+    closeAsm();
+    openAsm();openManual(2);mode='play';
+    press('escape');
+    chk('悬挂态按 Esc → 手册关闭', !manualVisible(), 'mode='+mode);
+    closeAsm();
+
+    // — 场景4: 真正触发 asmWin() 通关演出, 断言不抛错 + 演出中手册始终可被 M 关闭 —
+    wipeSave();newGame();if(dlg)endDialog();sceneActive=false;state.tut=4;
+    state.quests.push({id:'m3',text:'m3',type:'main',done:false});
+    openAsm();openManual(2);
+    const before=errs.length;
+    asmWin();                                    // 触发通关(内部 setTimeout 收尾, 同步部分先跑)
+    chk('asmWin() 同步无抛错', errs.length===before, errs.slice(before).join(' | '));
+    chk('asmWin → state.asm=true', state.asm===true);
+    if(manualVisible())press('m');
+    chk('asmWin 进行中手册可被 M 关闭', !manualVisible());
+
+    chk('全程无 JS 错误', errs.length===0, errs.join(' | '));
+    rows.push(['ALL',rows.every(r=>r[1]),'']);
+  }catch(e){rows.push(['EXCEPTION',false,String(e&&e.stack||e)]);}
+  __probeOverlay('MANUAL',rows);
+})();
 
 /* ---- 各建筑可达性 BFS: index.html#reach → 新档双门全开, 洪泛验证每个领域/塔/门/直答门都从出生点可达 + 前期线性 ---- */
 (function(){
