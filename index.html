@@ -930,7 +930,7 @@ const REALMS_AS=[
           '洞口刻着一行被替换过的字母: "WKLV LV QRW WKH HQG"。洞里传来的回答, 来自系统更深处。')},
   {id:'osr',   mod:'sys', art:'os',    tx:30,ty:36,name:L('The Babel Tower','巴别塔'),topic:L('§5 System Software','§5 系统软件')},
   {id:'dev',   mod:'dev', art:'algo',  tx:56,ty:40,name:L('The Debug Proving Grounds','调试试炼场'),topic:L('§11/12 Programming & Development','§11/12 编程与开发')},
-  {id:'ethics',mod:'ethics',art:'logic',tx:48,ty:50,name:L('The Arbitration Hall','仲裁庭'),topic:L('§7 Ethics & Ownership','§7 伦理与归属')},
+  {id:'ethics',mod:'ethics',art:'logic',tx:46,ty:56,name:L('The Arbitration Hall','仲裁庭'),topic:L('§7 Ethics & Ownership','§7 伦理与归属')},
   {id:'netr',  art:'net',   tx:6,ty:56,name:L('Lighthouse of the Sea of Nets','网络之海·灯塔'),topic:'2/14 Networks',
    lock:L('The lighthouse keeps sending SYN. No one answers ACK. The reply, when it comes, will come from beneath this world.',
           '灯塔在发 SYN, 没有人回 ACK。等它等到回应的那天, 回应会来自这个世界的下面。')},
@@ -1778,7 +1778,7 @@ function renderBits(){
     row.appendChild(el);
   });
   const val=bits[0]*8+bits[1]*4+bits[2]*2+bits[3];
-  $('binVal').innerHTML='= <b>'+val+'</b><sub>10</sub>'+(val===BIN_TARGET?'　<span class="k">MATCH!</span>':'');
+  $('binVal').innerHTML='DEC = <b>'+val+'</b>'+(val===BIN_TARGET?'　<span class="k">MATCH!</span>':'');
   if(val===BIN_TARGET&&!state.gate)setTimeout(gateSolved,350);
 }
 function gateSolved(){
